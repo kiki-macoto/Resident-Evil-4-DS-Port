@@ -74,48 +74,177 @@ MIDI の音楽は DS では鳴らせないため、変換時に Windows の MIDI
 
 **ビルドする**
 
-- Windows と PowerShell 7
-- Docker Desktop（BlocksDS のイメージ `skylyrac/blocksds:slim-v1.24.0` を使います）
+- Windows 10 / 11（音楽の変換に Windows の MIDI 音源を使うため、Windows のみです）
+- 下の表のソフト
 - 自分で用意した『Resident Evil 4 - Zeebo Edition』のデータ（zip）
-- タイトル画面の画像 `assets/title/title_ds_edition_source.png`（原作の画像のため含めていません。各自で用意してください）
+- タイトル画面の画像（原作の画像のため含めていません。下の「3. ゲームのデータとタイトル画像を用意する」）
+
+| ソフト | 何に使うか | 入手先 |
+| --- | --- | --- |
+| PowerShell 7 | 変換ツールとビルドスクリプトを動かす | [インストール手順（Microsoft）](https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows)、[GitHub のリリース](https://github.com/PowerShell/PowerShell/releases) |
+| WSL 2 | Docker Desktop が中で使う | [WSL のインストール（Microsoft）](https://learn.microsoft.com/windows/wsl/install) |
+| Docker Desktop | DS 用のコンパイラ（BlocksDS）を動かす | [Docker Desktop](https://www.docker.com/products/docker-desktop/)、[Windows へのインストール手順](https://docs.docker.com/desktop/setup/install/windows-install/) |
+| BlocksDS | DS 用の SDK とコンパイラ。**自分で入れる必要はありません**（ビルドのときに Docker が [skylyrac/blocksds](https://hub.docker.com/r/skylyrac/blocksds) の `slim-v1.24.0` を自動で取ってきます） | [BlocksDS](https://blocksds.skylyrac.net/)、[GitHub](https://github.com/blocksds/sdk) |
+| Git（任意） | リポジトリを取ってくる。ZIP でダウンロードするなら不要 | [Git for Windows](https://git-scm.com/downloads/win) |
+| melonDS（任意） | PC で動作を確かめる | [melonDS](https://melonds.kuribo64.net/) |
+
+C# の部分は PowerShell 7 が実行のたびにコンパイルするので、.NET SDK や Visual Studio は要りません。
 
 ## ビルド
 
-```powershell
-# 1. ゲームのアーカイブを展開する（re4zeebo/out/files にできます）
-./re4zeebo/re4zeebo.ps1 -InputPath "<Resident Evil 4 - Zeebo Edition.zip>" -OutDir re4zeebo/out -Unpack
+Windows 10 / 11 での手順です。コマンドは、特に書いていなければ **PowerShell 7** の画面で、リポジトリのフォルダに移動してから実行します。
 
-# 2. ゲームのデータを DS 用に変換する（ds/data と ds/nitrofs に置きます）
-./re4zeebo/re4zeebo.ps1 -InputPath "<Resident Evil 4 - Zeebo Edition.zip>" -OutDir ds/data <変換する内容>
+### 1. 必要なソフトを入れる
 
-# 3. ミッションの配置とショップの改造表を C のソースにする
-./re4zeebo/gen_stage_foes.ps1 -Root .
-./re4zeebo/gen_shop_tune.ps1
+**PowerShell 7**
 
-# 4. ビルド
-./build.ps1          # ds/re4ds.nds ができます
-./build.ps1 -Run     # ビルドして melonDS で起動（tools/melonDS/ に置いた場合）
-```
-
-変換する内容（`-DsModel`、`-DsAnim`、`-Ds2D`、`-DsSound`、`-DsMusic` など）の書き方と例は
-[docs/NOTES.md](docs/NOTES.md) の Building を見てください。
-`-DsMusic` は PC の音声出力を録音するので、変換中はほかの音を鳴らさないでください。
-
-### 物語のシーン
-
-ステージの始まりやボス戦で流れる、絵と台詞のシーンです。
-台詞は原作（ポルトガル語）を英語に訳したもので、`re4zeebo/cutins_en.txt` にあります。
-書式は1行に1ページで、`ステージ番号2桁:台詞番号|英語の文`（`/` で改行、1行31文字まで）です。
-
-`ds/source/cutins.c` は、この英訳とミッションのファイルから作ったものです。
-シーンの絵は `ds/nitrofs/eveNN_k.bin` で、ゲームのデータから作るため含めていません。
-絵が無いときは、台詞だけが表示されます。
-
-英訳を直したときや、絵を書き出すときは、次を実行してからビルドします。
+上の表の「インストール手順」から MSI をダウンロードして入れるか、Windows の「ターミナル」で次を実行します。
 
 ```powershell
-./re4zeebo/gen_cutins.ps1
+winget install --id Microsoft.PowerShell --source winget
 ```
+
+Windows に最初から入っている「Windows PowerShell」（青い画面、バージョン 5.1）では動きません。
+スタートメニューの「PowerShell 7」を開くか、ターミナルで `pwsh` と入力して切り替えてください。
+`$PSVersionTable.PSVersion` で 7 以上と出れば大丈夫です。
+
+**WSL 2 と Docker Desktop**
+
+1. 管理者として開いたターミナルで `wsl --install` を実行し、PC を再起動します（すでに入っていれば不要）。
+2. [Docker Desktop](https://www.docker.com/products/docker-desktop/) をダウンロードして入れます。途中で「Use WSL 2 instead of Hyper-V」を選んでください。
+3. Docker Desktop を起動し、左下が「Engine running」になるまで待ちます。
+4. 次のコマンドで、メッセージ（Hello from Docker!）が出れば準備完了です。
+
+   ```powershell
+   docker run --rm hello-world
+   ```
+
+Docker Desktop は、ビルドするときに毎回起動しておく必要があります。
+
+**Git（任意）**
+
+[Git for Windows](https://git-scm.com/downloads/win) を入れます。設定は初期値のままで構いません。
+
+### 2. リポジトリを取ってくる
+
+```powershell
+git clone <このリポジトリの URL>
+cd <リポジトリのフォルダ>
+```
+
+Git を使わない場合は、GitHub のページの「Code」→「Download ZIP」でダウンロードして展開します。
+その場合は、展開したフォルダで次を一度だけ実行してください（インターネットから来たファイルとしてスクリプトが止められるのを解除します）。
+
+```powershell
+Get-ChildItem -Recurse | Unblock-File
+```
+
+「このシステムではスクリプトの実行が無効になっている」と出る場合は、その画面で次を実行してから続けます（その画面を閉じるまで有効です）。
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+### 3. ゲームのデータとタイトル画像を用意する
+
+- **ゲームのデータ**：『Resident Evil 4 - Zeebo Edition』の zip を、どこか分かる場所に置きます（展開しなくて構いません）。
+  中に `.h2z` のアーカイブが入った zip です。展開済みのフォルダや、`.h2z` が入ったフォルダを指定することもできます。
+- **タイトル画像**：`assets/title/title_ds_edition_source.png` に PNG を置きます。
+  左上の 1109 × 832 ピクセルを切り出して 256 × 192 に縮めて使うので、**1109 × 832 ピクセル以上**の画像にしてください（4:3 の画像なら 1109 × 832 ちょうどにするときれいに収まります）。
+  フォルダが無ければ作ります。
+
+  ```powershell
+  New-Item -ItemType Directory -Force assets/title
+  ```
+
+### 4. ゲームのデータを DS 用に変換する
+
+```powershell
+./re4zeebo/export_all.ps1 -InputPath "D:\Downloads\Resident Evil 4 - Zeebo Edition.zip"
+```
+
+`-InputPath` は自分の zip の場所に書き換えてください。スペースを含むので `"` で囲みます。
+これ1本で、次のことを順に行います。全部で、音楽の録音を除いて2分ほど（手元の PC で約1分半）、録音に1分半ほどかかります。
+
+| 順番 | 内容 | できるもの |
+| --- | --- | --- |
+| 1 | zip の展開（2回目からは省略） | `re4zeebo/out/files/` ほか |
+| 2 | レオン、ガナード、仕掛け、武器、2D 画像、文字、効果音 | `ds/data/*.bin`（ROM に入ります） |
+| 3 | 音楽の録音（下の注意） | `ds/data/music.bin` |
+| 4 | 12 ステージのモデルと当たり判定、アシュリーやボス、ほかの銃 | `ds/nitrofs/*.bin`（遊んでいる間に読み込みます） |
+| 5 | 敵の配置、ショップの改造表、物語のシーン（とその絵） | `ds/source/stage_foes.c`、`shop_tune.c`、`cutins.c`、`ds/nitrofs/eve*.bin` |
+
+**音楽の録音についての注意**：DS では MIDI を鳴らせないので、原作の MIDI を Windows の MIDI 音源（Microsoft GS Wavetable Synth）で実際に鳴らし、PC の音声出力をそのまま録音しています。
+
+- 録音中（約1分半）は、ほかの音（動画、通知音など）を鳴らさないでください。一緒に録音されます。
+- スピーカーやヘッドホンなど、音の出力先が有効になっている必要があります。
+- 録音の結果は `re4zeebo/out/music/*.wav` にも保存されるので、聞いて確かめられます。
+- 音楽だけ後で録り直すには、次のようにします。
+
+  ```powershell
+  ./re4zeebo/export_all.ps1 -InputPath "<zip の場所>" -NoMusic     # 音楽以外を変換
+  ./re4zeebo/export_all.ps1 -InputPath "<zip の場所>" -OnlyMusic   # 音楽だけ録音
+  ```
+
+最後に `Done.` と出れば完了です。途中で止まった場合は、赤いエラーの直前に `== ` で始まる行があり、どの変換で止まったかが分かります。
+
+### 5. ビルドする
+
+Docker Desktop が起動している（Engine running）ことを確かめてから、次を実行します。
+
+```powershell
+./build.ps1
+```
+
+`ds/re4ds.nds` ができれば成功です。
+
+- 初回は BlocksDS のイメージ（展開後 約 1 GB）をダウンロードするので時間がかかります。2回目からは1分ほどで終わります。
+- 中間ファイルを消して最初からビルドし直すには `./build.ps1 clean` のあと `./build.ps1` です。
+- ソースだけを直したときは、`./build.ps1` だけで構いません（4. の変換はやり直さなくて大丈夫です）。
+
+### 6. PC で動かしてみる（任意）
+
+[melonDS](https://melonds.kuribo64.net/) をダウンロードして、`tools/melonDS/melonDS.exe` になるように展開しておくと、ビルドしてすぐ起動できます。
+
+```powershell
+./build.ps1 -Run
+```
+
+melonDS を別の場所に置いた場合は、melonDS の「File」→「Open ROM」から `ds/re4ds.nds` を開きます。
+melonDS の操作のキー割り当ては「Config」→「Input and hotkeys」で変えられます。マウスが下画面のタッチです。
+
+### 一部だけ作り直す
+
+| 何を変えたか | やること |
+| --- | --- |
+| `ds/source/` の C のソース | `./build.ps1` |
+| `ds/source/text.h` の文字（新しい文字を使った） | 下の文字の変換をしてから `./build.ps1` |
+| `re4zeebo/cutins_en.txt`（台詞の英訳） | `./re4zeebo/gen_cutins.ps1` のあと `./build.ps1` |
+| 変換ツール（`re4zeebo/*.cs`） | `./re4zeebo/export_all.ps1 -InputPath "<zip の場所>" -NoMusic` のあと `./build.ps1` |
+
+文字の変換（`text.h` で使っている文字だけを、ゲームのフォントから取り出します）：
+
+```powershell
+./re4zeebo/re4zeebo.ps1 -InputPath re4zeebo/out/files -OutDir ds/data -DsFont 'font=common/2d_fnt_00.mct;common/2d_fnt.hfi;ds/source/text.h'
+```
+
+`export_all.ps1` の中身は、変換1回ごとに1行ずつ書いてあります。ほかの部分だけ作り直したいときは、その行の引数を `re4zeebo.ps1` に渡してください。
+引数の書き方（`-DsModel`、`-DsAnim`、`-Ds2D` など）は `re4zeebo/re4zeebo.ps1` の先頭と [docs/NOTES.md](docs/NOTES.md) の Building にあります。
+
+### うまくいかないとき
+
+| 出たメッセージ・症状 | 原因と対処 |
+| --- | --- |
+| `failed to connect to the docker API`、`docker: The term 'docker' is not recognized` | Docker Desktop が起動していません。起動して「Engine running」になるまで待ちます |
+| `スクリプトの実行が無効` / `running scripts is disabled` | 「2. リポジトリを取ってくる」の `Set-ExecutionPolicy` を実行します |
+| `Add-Type` や C# のエラーがたくさん出る | Windows PowerShell 5.1 で実行しています。PowerShell 7（`pwsh`）で実行し直します |
+| `assets/title/title_ds_edition_source.png is missing` | タイトル画像がありません。「3.」のとおり置いてから、4. をやり直します |
+| ビルドで `title_bin` などが見つからないというエラー | `ds/data` のファイルが足りません。4. が最後（`Done.`）まで終わっているか確かめます |
+| 音楽が鳴らない、雑音が入っている | 録音中にほかの音が鳴ったか、出力先が無効でした。`-OnlyMusic` で録り直します |
+| 物語のシーンで絵が出ず、台詞だけ出る | `ds/nitrofs/eve*.bin` がありません。`./re4zeebo/gen_cutins.ps1` を実行してからビルドします |
+| 実機で起動しない | DS のフラッシュカートによっては DLDI のパッチが必要です。フラッシュカートの説明を見てください |
+
+
 
 ## インストール
 
