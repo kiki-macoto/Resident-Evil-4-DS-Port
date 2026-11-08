@@ -1,0 +1,249 @@
+# English for the cut-in lines of the mission files (mis_data_sNN: their texts are Portuguese).
+# stage:index|line/line/line   (at most 3 lines of about 30 characters; gen_cutins.ps1 reads this)
+01:0|1998...
+01:1|I'll never forget it.
+01:2|That was the year of those/horrible murders in the/Arklay Mountains.
+01:3|It soon came out that the/Umbrella Corporation/was to blame.
+01:4|Then the virus spread to/nearby Raccoon City...
+01:5|With people turning into/zombies, the whole city/became a living hell.
+01:6|When the news got out, the/US President had no/choice...
+01:7|...and took the emergency/plan: to sterilize/Raccoon City.
+01:8|The government then ordered/an indefinite suspension/of Umbrella's business.
+01:9|Its stock went into free/fall, and in time Umbrella/ceased to exist.
+01:10|Six years have passed/since that terrible/incident.
+01:11|I was trained by a secret/organization, on the/President's behalf.
+01:12|My job was going to be/protecting the President's/family.
+01:13|Just before I took up my/post, the President's/daughter...
+01:14|...was kidnapped. That's/why I'm out here in rural/Europe.
+01:15|We have reliable word of/a girl looking like her/being seen here.
+01:16|It seems a group of/unidentified people/has her.
+01:17|Who'd have thought my/first job would be/a rescue mission...
+01:18|Leon reaches the remote/village with the/local police.
+01:19|According to reports, a/new and dangerous kind of/zombie has been seen.
+01:20|Who are these people?
+01:21|With the roar of an engine,/a man with a chainsaw/appears.
+01:22|Great. A chainsaw.
+01:23|Next to the others, the man/with the sack over his head/looks strong...
+01:24|An ordinary pistol doesn't/look like it will bring/him down.
+01:25|I need something with a/bit more firepower.
+01:41|In the heat of the fight, a/church bell rings, and all/the villagers stop.
+01:42|Hearing the bell, the/villagers calm down and/the attacks stop.
+01:43|As if led by someone, they/line up and go into/a house.
+01:44|Where's everybody going?/Bingo?
+01:45|They all seemed crazy./It's as if I were/dreaming...
+01:46|The villagers are gone,/and Leon is left alone/in the village.
+02:0|In an abandoned house, a/man is tied up and seems/to need help.
+02:1|The village chief, Bitores/Mendez, captures Leon/and ties him up.
+02:2|Leon and the man are taken/to a heavily guarded/valley.
+02:3|American, si? What brings/a guy like you to this/part of the world?
+02:4|My name's Leon.
+02:5|Leon tries to pull the/photo out of his back/pocket.
+02:6|I came here looking for/this girl. Seen her?
+02:7|Let me guess... she's the/President's daughter?
+02:8|The man overheard talk/outside: the girl is/supposed to be in the church.
+02:9|Me llamo Luis Sera. I used/to be a cop in Madrid,/but now I'm...
+02:10|...a good-for-nothing who/does remarkably well/with the ladies.
+02:11|Why did you quit?
+02:12|Hmph, police. You put your/life on the line and/nobody gives a damn.
+02:13|I used to be a cop too./Only for a day,/though.
+02:14|And I thought I had/it bad.
+02:15|Somehow I got myself/mixed up in the Raccoon/City incident...
+02:16|The virus outbreak/incident.
+02:17|I think I saw a sample of/the virus in the/department's lab.
+02:18|While Luis talks, Ganados/armed with axes close in/on the two men.
+02:19|... Now!
+02:20|Leon uses a Ganado's axe/to cut through the chains/on his hands!
+02:21|Free of the chains, Leon/deals with the Ganados/who attacked him.
+02:22|But Luis has already/slipped away.
+02:23|The door won't open.
+02:28|Leon can't go back.
+03:0|Exhausted from the fight,/Leon rests inside a/small house.
+03:1|There he has a horrible/nightmare.
+03:2|In his dream, he is in/agony.
+03:3|Inside Leon's body,/something reacts violently/and he can't resist.
+03:4|Leon's veins begin to/swell. Is he turning into/something inhuman?
+03:5|At the height of the/nightmare, Leon wakes up.
+03:6|A dream...?
+03:7|Awake, Leon notices a note/someone has left on/the table:
+03:8|"An important item is/hidden by the falls."
+03:9|"If you can reach it, you/should be able to get/Ashley out of the church."
+03:10|"But be careful: the way to/the church is guarded by/an El Gigante."
+03:11|"About what's happening to/your body... I'd help you/if I could."
+03:12|"But it's beyond my power,/I'm afraid."
+03:18|On a rope down the side of/the waterfall, Leon slowly/climbs down.
+03:19|After the climb, Leon finds/the key on the other side/of the waterfall.
+03:20|Of all places, they hid/a key here?
+03:21|This letter... so detailed./Who the hell/wrote it?
+04:0|Leon takes the key and,/in the dead of night,/walks to the church.
+04:1|But on the way, Leon/passes through a mine.
+04:2|Inside, the mine looks like/an arena, and here he/meets a giant.
+04:3|That's El Gigante? I don't/think I'll beat it/with just this...
+04:4|Defeat El Gigante, and the/door opens and you can/go on.
+04:5|If I don't get to/the church...!
+04:6|Leon reaches the top of/El Gigante from behind.
+04:7|Leon cuts the tentacle/coming out of/El Gigante's back!
+04:8|That tentacle... Is that/its weak spot?
+05:9|Leon finally reaches/the church.
+05:10|Inside the castle it's calm,/though a storm rages/outside.
+05:11|Where can Ashley be...?
+05:12|Leon begins his search.
+05:13|As Leon and Ashley leave/the church, Saddler/appears in front of them.
+05:14|I'll be taking the girl.
+05:15|Who are you?
+05:16|If you must know, my name/is Osmund Saddler, leader/of this fine community.
+05:17|What do you want?
+05:18|To show our tremendous/power to the whole world,/of course.
+05:19|We took this girl to give/her our power and send/her back.
+05:20|Leon... I think they/injected something into/my neck.
+05:21|What did you do to her!?
+05:22|We merely planted "a little/gift" for when she is/reunited with her father.
+05:23|But before that, I thought/I'd ask the US President/for some donations.
+05:24|Faith in money won't get/you anywhere, Saddler.
+05:25|I believe I forgot to tell/you we gave you the/same gift.
+05:26|When I was/unconscious...
+05:27|I hope you like our little/gift. When those eggs/hatch...
+05:28|...you'll be my puppets./The best way to spread/the faith, no?
+05:29|Sounds more like an alien/invasion, if you ask me.
+05:30|At Saddler's signal, a/crowd of enemies closes in/on Leon!
+05:31|Leon and Ashley dodge the/attacks and escape by/jumping through a window!
+05:32|Are you all right?
+05:33|Leon, what's going to/happen to us!?
+05:34|Don't worry. We got into/this mess; we'll get/out of it.
+05:35|Having saved Ashley, Leon/runs into a new/problem...
+05:36|In front of Leon and Ashley/a short silhouette appears/and quickly vanishes.
+05:37|Leon finds a girl. Ashley/cowers in the corner of/the room, scared.
+05:38|Stay back!
+05:39|Hey! Calm down, Ashley...
+05:40|It'll be fine. My name is/Leon. I'm under orders to/rescue you.
+05:41|Hearing Leon, Ashley calms/down, relief on/her face.
+05:42|M-My father?
+05:43|That's right, and I have/to get you out of here.
+05:44|Leon and Ashley climb/the ladder.
+06:3|Leon and Ashley try to/escape across the/suspension bridge.
+06:4|But the rescue helicopter/has been shot down, and an/ambush closes in.
+06:5|What do we do, Leon?
+06:6|I hate to say it, but we're/surrounded. Over there,/that cabin.
+06:7|The two escape into the/cabin. Leon shuts the door/and bolts it tight.
+06:8|When they turn round,/Luis is in the room.
+06:9|We meet again.
+06:10|Ashley gets behind Leon/to hide her worry.
+06:11|Well, I see the President/trained his daughter/in ballistics.
+06:12|How rude! I don't think my/figure matters here./Who are you?
+06:13|Speaking of rude. Maybe/you'd like to introduce/yourself first?
+06:14|My name is Ashley Graham,/the President's daughter.
+06:15|Is she... you know?
+06:16|Don't worry./She's fine.
+06:17|Ashley looks at Leon with/a puzzled expression.
+06:18|Relax. There's supposed to/be some obvious symptom/before you turn...
+06:19|Look!
+06:20|Ashley points at the window./Ganados are already/surrounding the house.
+06:21|Upstairs, Ashley!
+06:22|Leon and Luis hold off the/Ganados' attack and force/them to fall back.
+06:23|They seem to be retreating./What do we do now?
+06:24|The bridge I crossed to get/here is gone. So I guess we/have to keep going.
+06:25|I forgot something. You go/on ahead. I'll catch up/with you later.
+06:26|Luis goes back into the/cabin, leaving you two/to go on alone.
+06:27|Luis... who is that guy?/And he said he forgot/something...?
+06:28|No choice. I have to find/another way and get Ashley/out of here.
+06:29|After Luis leaves, Ashley/and Leon are in front of/the cabin.
+07:6|Despite Leon's/counterattacks, the Ganados/advance without fear.
+07:7|Giving up the fight, Leon/and Ashley flee into an old/castle and raise the bridge.
+07:8|Leon and Ashley have no/choice left.
+07:9|Los Illuminados, controlled/by the parasites, are in/the castle.
+07:10|The two have stepped into/the middle of a whirlwind/of madness.
+07:11|A steady blast is followed/by stifling heat!
+07:12|The shell hits the castle/gate, turning it/to rubble.
+07:13|We won't be rescued if we/stay here. We have to get/away somehow.
+07:14|Leon escapes the castle and/finds Luis running and/calling to him.
+07:15|I've got something for/you, amigos.
+07:16|Luis searches his pockets/for something, but can't/find it.
+07:17|Luis's face turns from/relief to annoyance.
+07:18|Damn! I must have dropped/the drug while I was/running from them.
+07:19|To stop your seizures,/since you're hosts. You've/coughed up blood, right?
+07:20|Damn. The eggs have/hatched. We don't have/much time.
+07:21|What are you talking about?
+07:22|I have to go back and/get it.
+07:23|I'll go with you.
+07:24|You stay here with Leon./He's better with girls./I'm sure.
+07:25|Why are you...
+07:26|It makes me feel better./Leave it as it is.
+07:27|Luis leaves Ashley and/Leon behind.
+07:28|It's not just a parasite,/but something that can/control its host.
+07:29|Luis definitely has/something they want.
+07:30|But why is he/helping us?
+07:31|To get through the castle/gate... Can we use this?
+07:32|Leon, can you really/use that?
+07:33|Don't worry. I'll stop/them. Ashley, get it/ready.
+07:34|OK, got it.
+08:5|The Garrador, a monster/with sewn-up eyes, comes/face to face with Leon.
+08:6|But if Leon gets too close/and makes noise, the/monster will go berserk.
+08:7|It can't see Leon, but he/must avoid its claws and/run for the wall.
+08:8|That thing... it attacks/by sound? In that case...
+08:9|... I have to get round it/without making a sound...
+08:20|Leon and Ashley have/slipped into the castle/unseen.
+08:21|The castle is a complex/place with many dangers/lurking.
+08:22|Compared to the village,/the enemies here are more/dangerous and smarter.
+08:23|Leon knows rescuing and/protecting Ashley is his/number one priority.
+08:24|But something inside Leon/is making him more/violent.
+08:25|We can't let this go on./We have to put an end to/it here!
+08:26|With nowhere to run, Leon/fights on against the/hopeless odds.
+08:27|Leon breaks the statue.
+09:4|Ashley is captured/again.
+09:5|The cult members take/Ashley to the others at/the back of the castle.
+09:6|Leon pushes through the/Ganados to save Ashley/before the "ritual".
+09:7|After a while, Leon reaches/the tower where Ashley/is held.
+09:8|Not only Los Illuminados/guard this place, but/Garradors too.
+09:9|Two of them at once. This/won't be a walk in the/park.
+09:10|They haven't noticed me/yet... My chance to do/some damage.
+09:11|The gatekeeper enters/the corridor.
+10:10|Leon enters the central/hall to look for Ashley,/and Luis runs in.
+10:11|Suddenly, Saddler's/tentacle pierces Luis's/chest.
+10:12|The sample falls from/Luis's hand into/Saddler's.
+10:13|Luis, hang on.
+10:14|I'm a researcher. Hired by/Saddler. He found out what/I was planning...
+10:15|Don't talk.
+10:16|Luis reaches into his/pocket and takes out a/drug for Leon.
+10:17|This should hold back the/parasite's growth./The sample...
+10:18|Saddler has it. You have/to get it back...
+10:19|Remember, Leon... I was a/cop too. That was no/joke...
+10:20|Luis is dead. But the drug/Luis gave Leon should buy/him some more time.
+10:21|Leon finds Ashley down/below, unharmed.
+10:22|Leon has to shoot the/chains above to set/Ashley free.
+10:23|I wonder what would have/happened if they had/caught me before you.
+10:24|Ashley begins to calm/down.
+10:25|Los Illuminados begin to/fill the room.
+10:26|Los Illuminados begin to/surround Ashley.
+10:27|With no one to protect her,/Ashley crouches with her/hands over her head.
+10:28|They want Ashley!
+10:29|Ashley, get out of there!
+10:30|Leon manages to rescue/Ashley.
+10:31|Ashley opens the door Leon/is outside of. She throws/herself into his arms.
+10:32|After so long the two are/together again, but they/have been through a lot.
+11:0|Leon reaches the top of/El Gigante from behind.
+11:1|Leon cuts the tentacle/coming out of/El Gigante's back!
+11:10|Leon and Ashley look for a/way out of the castle once/more, but the enemy waits.
+11:11|In an instant, Ashley is/captured again.
+11:12|Giving chase, Leon falls/into a trap and drops to/the castle's depths.
+11:13|I won't fall for that/old trick.
+11:14|Hang on, Ashley,/I'm coming!
+11:15|Waiting for Leon in the/castle depths are two/El Gigantes.
+11:16|Two against one is/definitely not fair.
+11:17|This looks like the/furnace...
+11:18|Leon has entered the/furnace area.
+12:7|As Leon shuts the door,/something drops from the/ceiling.
+12:8|It looks like a/thick-shelled insect.
+12:9|It shows high intelligence/and quick reactions.
+12:10|The deadly assassin,/Verdugo.
+12:11|This guy's different from/everything before...
+12:12|But I've come too far to/give up now. I have to/save Ashley!
+12:24|The worn-out elevator/slowly goes down.
+12:25|What on earth could be/waiting for Leon in this/old castle?
+12:26|Can Leon save Ashley and/get out of this nightmare/alive?
+12:27|The religious cult/Los Illuminados
+12:28|Left alone, they could/cause a global/biological attack.
+12:29|So we have no choice but/to stop them before it/gets worse.
+12:30|Leon's mood turns to/determination.
+12:31|No matter how bad things/get, Leon doesn't give up./That is his strength.
+12:32|Save Ashley... Crush/Saddler's dreams... Leon's/fight goes on.
+12:33|Ashley, hang in there./I'm coming for you.
+05:7|Leon jumps onto the chandelier/and swings across to the/other side!
