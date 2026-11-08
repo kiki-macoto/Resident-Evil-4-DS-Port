@@ -163,7 +163,8 @@ docker run --rm -v "${PWD}/ds:/work" -w /work skylyrac/blocksds:slim-v1.24.0 mak
 ## 開発メモ
 
 ゲームのファイル形式の解析結果、原作との違い、各ステージの調整の記録は
-[docs/NOTES.md](docs/NOTES.md)（英語）にまとめています。
+[docs/NOTES.md](docs/NOTES.md)（英語・AI翻訳）にまとめています。
+マルチプレイにも対応させたいけど、ポリゴン上限が中々シビアで、実現できるか怪しいです。
 
 ## 不具合の報告
 
