@@ -125,14 +125,7 @@ Docker Desktop は、ビルドするときに毎回起動しておく必要が�
 
 [Git for Windows](https://git-scm.com/downloads/win) を入れます。設定は初期値のままで構いません。
 
-### 2. リポジトリを取ってくる
-
-```powershell
-git clone <このリポジトリの URL>
-cd <リポジトリのフォルダ>
-```
-
-Git を使わない場合は、GitHub のページの「Code」→「Download ZIP」でダウンロードして展開します。
+GitHub のページの「Code」→「Download ZIP」でダウンロードして展開します。
 その場合は、展開したフォルダで次を一度だけ実行してください（インターネットから来たファイルとしてスクリプトが止められるのを解除します）。
 
 ```powershell
