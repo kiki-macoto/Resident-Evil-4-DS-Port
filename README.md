@@ -271,17 +271,6 @@ melonDS で試すときは、DLDI とフォルダの同期を有効にして、�
 
 メニューでは、上下（ステージセレクトは左右）で選び、A で決定、B で戻ります。
 
-## テスト用のビルド
-
-`-DAUTOPILOT=n` などの定義を付けてビルドすると、自動操作や表示の確認ができます。
-一覧は [docs/NOTES.md](docs/NOTES.md) の Test builds にあります。
-
-```powershell
-docker run --rm -v "${PWD}/ds:/work" -w /work skylyrac/blocksds:slim-v1.24.0 make -B "DEFINES=-DSKIP_TITLE -DSTART_STAGE=5"
-```
-
-確認が終わったら、定義を付けずにビルドし直してください。
-
 ## 開発メモ
 
 マルチプレイにも対応させたいけど、ポリゴン上限が中々シビアで、実現できるか怪しいです。
