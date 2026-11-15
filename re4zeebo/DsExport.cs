@@ -639,7 +639,9 @@ namespace Re4Zeebo
                 }
                 lists.Add(Tuple.Create(ti, tex != null && tex.Transparent, tris, gx.ToArray()));
                 var mat = s.Materials.Find(x => x.Key == d.Material);
-                twoSided.Add(mat != null && mat.Cull == 2);
+                // (Stage models only: the characters and objects are drawn one-sided, as they were
+                // made and tried on the DS before the flag was read.)
+                twoSided.Add(chunked && mat != null && mat.Cull == 2);
                 chunkOf.Add(chunked ? ChunkBounds(d) : null);
                 rep.Triangles += tris;
             }
