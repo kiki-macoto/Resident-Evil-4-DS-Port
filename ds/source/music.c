@@ -10,7 +10,7 @@ typedef struct {
 static Track tracks[MUSIC_COUNT];
 static int count, rate;
 static int playing = -1, channel = -1, current_volume = -1;
-static int level = 100, asked = 0;   // 全体の音量（パーセント）と、最後に頼まれた音量
+static int level = 100, asked = 0;
 
 static u16 rd16(const u8 *p) { return p[0] | p[1] << 8; }
 static u32 rd32(const u8 *p) { return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24; }
@@ -48,8 +48,6 @@ void music_play(int track, int volume)
     music_stop();
     if (track < 0 || track >= count)
         return;
-    // ADPCM のヘッダーのすぐ後のワード1からループ：ハードウェアはそこでのデコーダーの状態を保ち、
-    // 繰り返すたびに戻す。長さはそのヘッダーのワードを含まない。
     const Track *t = &tracks[track];
     asked = volume;
     volume = volume * level / 100;

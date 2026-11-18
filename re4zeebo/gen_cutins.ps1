@@ -1,23 +1,10 @@
-﻿# ds/source/cutins.c を書く：ミッションのストーリーの場面（「カットイン」）、ミッションファイルの
-# スクリプトのとおり（mis_data_sNN.bin、ワード5：48バイトのコマンドの場面。ワード6：文）、せりふは
-# cutins_en.txt の英語で。そしてその絵（eve_stgNN.mcts、それぞれ 256 x 128）を
-# ds/nitrofs/eveNN_k.bin にコピーする。
-#
-#   ./re4zeebo/gen_cutins.ps1 [-Files re4zeebo/out/files]
-#
-# 場面はページの一覧：出す絵（または無し）、話す人、文。使うコマンド：
-# 201 (2, _, k) は絵 k を出す（ほかは無し）、200 (who, _, s) は文 s の1ページ、
-# 202 (n) はお金。話す人：0 ナレーター、1 レオン、2 アシュリー、3 ルイス、4 サドラー。
-param([string]$Files = 're4zeebo/out/files')
+﻿param([string]$Files = 're4zeebo/out/files')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $Files = (Resolve-Path (Join-Path $root $Files)).Path
 
-# 再生する場面（ミッションの場面の番号）：開始時に0、クリア時に9、そしてイベント。
 $want = @{ 1 = 0, 9, 10; 4 = 0, 9, 11, 13, 14; 5 = 0, 9, 10, 17; 8 = 0, 9, 16; 11 = 0, 9, 11; 12 = 0, 9, 10 }
 foreach ($n in 2, 3, 6, 7, 9, 10) { $want[$n] = 0, 9 }
-# 2-12面：ミッションのイベントが再生するとおりに全部のスクリプト（main.c の foes_events()）、
-# プレイ中のメッセージ（絵の無いページ）はゲームの上に出す。
 foreach ($n in 2..12) { $want[$n] = 0..99 }
 
 $en = @{}
@@ -28,7 +15,6 @@ foreach ($l in Get-Content (Join-Path $PSScriptRoot 'cutins_en.txt') -Encoding U
 function CStr([string]$s) { '"' + ($s.Replace('\', '\\').Replace('"', '\"').Replace('/', '\n')) + '"' }
 
 $out = New-Object Text.StringBuilder
-[void]$out.AppendLine('// re4zeebo/gen_cutins.ps1 がミッションファイルと re4zeebo/cutins_en.txt から生成。編集しないこと。')
 [void]$out.AppendLine('#include "cutins.h"')
 [void]$out.AppendLine('')
 $table = @(); $pics = @{}
@@ -76,7 +62,6 @@ foreach ($t in $table) { [void]$out.AppendLine($t) }
 [IO.File]::WriteAllText((Join-Path $root 'ds/source/cutins.c'), $out.ToString().Replace("`r`n", "`n"))
 "$($table.Count) scenes, $($pics.Count) pictures"
 
-# 絵：1回の書き出しで（それぞれ自分の 256 x 128 のテクスチャ、出している間だけ読む）。
 $nitro = Join-Path $root 'ds/nitrofs'
 $specs = foreach ($kv in $pics.GetEnumerator()) {
     $sid, $pk = $kv.Value.Split('/')

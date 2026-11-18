@@ -1,11 +1,8 @@
-﻿# ds/source/shop_tune.c を書く：移植版にある銃の改造、item_tuneup_info.bin から。
-# レコード：u16 0x0004、u8 アイテム、u8 性能、u8 レベル、5バイト、u32 値段、0で終わる値の文字列。
-param([string]$Files = 're4zeebo/out/files', [string]$Target = 'ds/source/shop_tune.c')
+﻿param([string]$Files = 're4zeebo/out/files', [string]$Target = 'ds/source/shop_tune.c')
 $t = [IO.File]::ReadAllBytes((Join-Path $Files 'common/item_tuneup_info.bin'))
 $n = [BitConverter]::ToUInt16($t, 3)
 $p = 5
 $out = New-Object Collections.Generic.List[string]
-$out.Add('// re4zeebo/gen_shop_tune.ps1 が原作の item_tuneup_info.bin から生成。stages.h を参照。')
 $out.Add('#include "stages.h"')
 $out.Add('')
 $out.Add('const ShopTune shop_tune[] = {')

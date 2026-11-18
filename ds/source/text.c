@@ -2,8 +2,6 @@
 
 #include "text.h"
 
-// 1行は 32x16 のスプライトの並び（4bpp、1D マッピング、それぞれ8タイル）：広い行は8つ（2 KB）、
-// 狭い行は4つ。広い行12 + 狭い行8で VRAM F + G（32 KB）と128個のスプライト全部を埋める。
 #define MAX_SPRITES      8
 #define MAX_CHARS        48
 
@@ -13,7 +11,7 @@ static int line_first_sprite(int i) { return i < TEXT_WIDE_LINES ? i * 8 : TEXT_
 typedef struct {
     u16 code;
     u8 width;
-    const u32 *rows;   // TEXT_HEIGHT 行、1ピクセル2ビット
+    const u32 *rows;
 } Glyph;
 
 static Glyph glyphs[512];
@@ -24,8 +22,8 @@ typedef struct {
     int x, y, color, visible, width, big;
 } Line;
 static Line lines[TEXT_LINES];
-static u32 raster[MAX_SPRITES * 8 * 8];   // 1行のタイル、RAM で作ってから VRAM にコピー
-static int raster_width;                  // 作っている行のピクセル
+static u32 raster[MAX_SPRITES * 8 * 8];
+static int raster_width;
 
 static u16 rd16(const u8 *p) { return p[0] | p[1] << 8; }
 
@@ -48,8 +46,6 @@ int text_init(const void *font, size_t size)
     vramSetBankF(VRAM_F_MAIN_SPRITE_0x06400000);
     vramSetBankG(VRAM_G_MAIN_SPRITE_0x06404000);
     oamInit(&oamMain, SpriteMapping_1D_32, false);
-    // パレット：色1..3 = 文字の暗い / 中間 / 明るいピクセル、4 = 影。
-    // （ピンク：ポーズメニューの説明の行、原作の FFB4FF）
     static const u8 tint[6][3] = { { 31, 31, 31 }, { 31, 26, 10 }, { 31, 8, 6 }, { 17, 17, 17 }, { 10, 31, 12 }, { 31, 22, 31 } };
     for (int c = 0; c < 6; c++)
     {
@@ -78,7 +74,6 @@ static const Glyph *find(u32 code)
     return NULL;
 }
 
-// *s の次の UTF-8 のコードポイント（BMP だけ）。
 static u32 next_code(const char **s)
 {
     const u8 *p = (const u8 *)*s;
@@ -101,7 +96,7 @@ static int advance(u32 code, const Glyph *g)
 {
     if (g)
         return g->width;
-    return code < 0x80 ? TEXT_HEIGHT / 2 : TEXT_HEIGHT;   // 空白、無い文字
+    return code < 0x80 ? TEXT_HEIGHT / 2 : TEXT_HEIGHT;
 }
 
 int text_width(const char *s)
@@ -119,7 +114,6 @@ static void put(int x, int y, int v)
 {
     if (x < 0 || x >= raster_width || y < 0 || y >= 16)
         return;
-    // スプライト（x / 32）、タイルの行（y / 8）、スプライトの中のタイルの列。u32 に8ピクセル。
     int tile = (x / 32) * 8 + (y / 8) * 4 + (x % 32) / 8;
     u32 *row = &raster[tile * 8 + y % 8];
     int shift = (x % 8) * 4;
@@ -133,7 +127,7 @@ static void rasterize(int i)
     raster_width = sprites * 32;
     memset(raster, 0, sizeof(raster));
     int x = 0;
-    for (int pass = 0; pass < 2; pass++)   // まず影（右下に1ピクセル）、それから文字
+    for (int pass = 0; pass < 2; pass++)
     {
         const char *s = l->str;
         x = 0;
@@ -153,7 +147,7 @@ static void rasterize(int i)
         }
     }
     l->width = x;
-    u32 *dst = (u32 *)((u8 *)SPRITE_GFX + line_first_sprite(i) * 8 * 32);   // VRAM：32ビットの書き込みだけ
+    u32 *dst = (u32 *)((u8 *)SPRITE_GFX + line_first_sprite(i) * 8 * 32);
     for (int k = 0; k < sprites * 8 * 8; k++)
         dst[k] = raster[k];
 }
@@ -171,7 +165,6 @@ static void plot16(u16 *dst, int stride, int w, int h, int x, int y, int scale, 
 
 int text_draw16(u16 *dst, int stride, int w, int h, int x, int y, u16 color, int scale, const char *s)
 {
-    // 文字のレベル 1..3 = color の明るさの 1/2、3/4、そのまま。
     u16 shade[4] = { 0, 0, 0, 0 };
     for (int l = 1; l <= 3; l++)
     {
@@ -179,7 +172,7 @@ int text_draw16(u16 *dst, int stride, int w, int h, int x, int y, u16 color, int
         shade[l] = 0x8000 | RGB15(r * (l + 1) / 4, g * (l + 1) / 4, b * (l + 1) / 4);
     }
     int x0 = x;
-    for (int pass = 0; pass < 2; pass++)   // まず影
+    for (int pass = 0; pass < 2; pass++)
     {
         const char *p = s;
         x = x0;
@@ -242,8 +235,6 @@ void text_clear(void)
 
 void text_commit(void)
 {
-    // アフィン行列0で大きさを2倍にする（8.8 の固定小数点、拡大率の逆数）。倍角のスプライトは
-    // 64x32 ピクセルを覆い、32x16 の絵がそれを埋めるよう拡大される。
     oamRotateScale(&oamMain, 0, 0, 1 << 7, 1 << 7);
     for (int i = 0; i < TEXT_LINES; i++)
     {

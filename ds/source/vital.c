@@ -10,25 +10,20 @@
 
 typedef struct {
     int w, h;
-    const u16 *px;   // RGB15、ビット15 = 不透明
+    const u16 *px;
 } Bitmap;
 
 static Bitmap panels, icons;
-static u16 bg[W * H];    // 変わらない配置
-static u16 fb[W * H];    // bg + 変わる部分、範囲ごとに VRAM へコピー
+static u16 bg[W * H];
+static u16 fb[W * H];
 static u16 *vram;
 
-// 配置。パネルのビットマップ（vitalbmp.bin）：y 0 に 2d_bks_01 の枠（見出しのバー 240x30 を 0,0。
-// ばねのパネル 240x34 を 0,30。小さな枠 32x16 を 0,80）、2d_bks_00 の枠（50x30 を 8,96）、
-// 木の帯（240x32 を 0,180）。
 #define SLOT_Y 98
-#define DOUBLE_TAP 24   // フレーム数：この間隔以内で枠を2回タッチするとアイテムを使う
+#define DOUBLE_TAP 24
 static int tap_slot = -1, tap_tick;
 
-static int mode = -1;   // 0 待機、1 ゲーム（アイテム）、2 ストーリーの場面、3 ゲーム（マップ）
+static int mode = -1;
 static int sprites_ready_g, map_redraw_g;
-// メニューとストーリーの場面は BG3 に普通のビットマップとして描く：回転と拡大を戻し、マップの
-// スプライトを隠す（ゲームに戻ったらマップを描き直す）。
 static void bg_plain(void)
 {
     REG_BG3PA_SUB = 256;
@@ -46,7 +41,7 @@ static void bg_plain(void)
 }
 static int sel, msg_frames;
 static char msg[48];
-static Vital last;   // （アイテム選択のもの：最後に描いたもの）
+static Vital last;
 static int last_sel = -1, last_msg = -1, last_fps = -1, drawn_hp = -1;
 
 static int load_bitmap(Bitmap *b, const void *data, size_t size)
@@ -73,8 +68,6 @@ int vital_init(const void *panel_data, size_t panels_size, const void *icon_data
     return 0;
 }
 
-// ビットマップの一部を拡大縮小して（最近傍）バッファにコピーし、透明なピクセルは飛ばす。
-// shade 31 = そのまま、小さいほど暗い。
 static void blit(u16 *dst, const Bitmap *b, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh, int shade)
 {
     for (int y = 0; y < dh; y++)
@@ -98,8 +91,6 @@ static void blit(u16 *dst, const Bitmap *b, int sx, int sy, int sw, int sh, int 
     }
 }
 
-
-
 static void flush(int x0, int y0, int x1, int y1)
 {
     for (int y = y0; y < y1; y++)
@@ -114,8 +105,8 @@ static int text(u16 *dst, int x, int y, u16 color, int scale, const char *s)
 
 static void backdrop(u16 *dst)
 {
-    blit(dst, &panels, 0, 180, 240, 32, 0, 0, W, H, 12);   // 木の帯を暗くして背景に
-    blit(dst, &panels, 0, 0, 240, 30, 8, 2, 240, 30, 31);   // 見出しのバー
+    blit(dst, &panels, 0, 180, 240, 32, 0, 0, W, H, 12);
+    blit(dst, &panels, 0, 0, 240, 30, 8, 2, 240, 30, 31);
 }
 
 void vital_idle(const char *caption, const char *subtitle)
@@ -125,7 +116,6 @@ void vital_idle(const char *caption, const char *subtitle)
     mode = 0;
     bg_plain();
     backdrop(bg);
-    // 見出しのバーの中央に見出し、その下の中央に副題（7ピクセルの ASCII のマス）。
     text(bg, (W - 7 * (int)strlen(caption)) / 2, 9, RGB15(31, 26, 10), 1, caption);
     text(bg, (W - 7 * (int)strlen(subtitle)) / 2, 40, RGB15(25, 25, 25), 1, subtitle);
     memcpy(fb, bg, sizeof(fb));
@@ -140,7 +130,6 @@ void vital_cutin(const void *picture, size_t size, const char *who, const char *
     for (int i = 0; i < W * H; i++)
         fb[i] = 0x8000;
     const u8 *p = picture;
-    // RD2D：マジック、w、h。それからテクスチャのレコード：w、h、タイプ、フラグ、パレットの色数、バイト数、テクセル、パレット。
     if (p && size >= 20 && memcmp(p, "RD2D", 4) == 0)
     {
         int tw = p[8] | p[9] << 8, th = p[10] | p[11] << 8, type = p[12], colors = p[14] | p[15] << 8;
@@ -176,26 +165,20 @@ void vital_cutin(const void *picture, size_t size, const char *who, const char *
     flush(0, 0, W, H);
 }
 
-// ゲーム中：下画面はステージのマップ（stage_maps.c）、上から見て、レオンが画面の上へ進むように
-// 回す：彼の矢印は動かず（MAP_CX, MAP_CY）、マップがそのまわりを動いて回る（BG3、アフィンの
-// ビットマップ：平面図はステージごとに1回描き、ハードウェアが動かす）。その上にスプライト（VRAM I）：
-// 左に縦に並ぶアイテムのショートカット（アイテム選択の枠を小さくしたもの：手に持っている銃、その弾、
-// ハーブ。ハーブをダブルタップで1つ使う）、アシュリーの点、表示用の帯（「Life is already full」、
-// アイテムの入手）。
-#define MAP_CX     150         // 画面上のレオン（ショートカットの列の右）
+#define MAP_CX     150
 #define MAP_CY     118
-#define MAP_ZOOM   inttof32(1) // ワールドの1単位あたりの画面のピクセル
-#define COL_X      4           // ショートカットの列
+#define MAP_ZOOM   inttof32(1)
+#define COL_X      4
 #define COL_Y      6
-#define SLOT_H     42          // 枠：アイコン（32 x 24）とその下の数
-static int map_stage = -1;     // VRAM の平面図がどのステージのものか
-static int map_k;              // 平面図の縮尺：ワールドの1単位あたりの f32 のテクセル
-static int map_x0, map_z0;     // テクセル 0, 0 にあるワールドの点（単位）（余白を引いたもの）
-static u16 col_px[32 * 128];   // 列のピクセル（32 x 64 のスプライト2つ）
-static u16 note_px[192 * 16];  // 表示の帯（32 x 16 のスプライト6つ）
+#define SLOT_H     42
+static int map_stage = -1;
+static int map_k;
+static int map_x0, map_z0;
+static u16 col_px[32 * 128];
+static u16 note_px[192 * 16];
 static u16 *col_gfx[2], *note_gfx[6], *leon_gfx, *ash_gfx;
 static int sprites_ready;
-static int aff[6];             // vital_commit() 用の BG3 の PA、PB、PC、PD、X、Y
+static int aff[6];
 static int ash_sx, ash_sy, ash_show;
 
 static void tri_fill256(u16 *dst, int x0, int y0, int x1, int y1, int x2, int y2, u16 c)
@@ -220,7 +203,6 @@ static void tri_fill256(u16 *dst, int x0, int y0, int x1, int y1, int x2, int y2
         }
 }
 
-// 平面図を BG3 の 256 x 256（VRAM C 全部）に：余白付きで収める。その外は何も無い（背景の色が見える）。
 static void map_draw(int stage)
 {
     map_stage = stage;
@@ -268,12 +250,11 @@ static void sprites_init(void)
         note_gfx[i] = oamAllocateGfx(&oamSub, SpriteSize_32x16, SpriteColorFormat_Bmp);
     leon_gfx = oamAllocateGfx(&oamSub, SpriteSize_16x16, SpriteColorFormat_Bmp);
     ash_gfx = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
-    // レオンの矢印、上向き。アシュリーの点。
-    static u16 arrow[16 * 16], dot[8 * 8];   // （static：DMA は DTCM にあるスタックを読めない）
+    static u16 arrow[16 * 16], dot[8 * 8];
     for (int y = 0; y < 16; y++)
         for (int x = 0; x < 16; x++)
         {
-            int half = y / 2;   // （三角形：先端が上、下の幅15）
+            int half = y / 2;
             int in = y >= 1 && y <= 14 && x >= 8 - half && x <= 7 + half;
             int edge = in && (y == 14 || x == 8 - half || x == 7 + half);
             arrow[y * 16 + x] = !in ? 0 : edge ? 0x8000 | RGB15(6, 4, 0) : 0x8000 | RGB15(31, 28, 4);
@@ -292,7 +273,6 @@ static void sprites_init(void)
     sprites_ready_g = 1;
 }
 
-// ショートカットの列を col_px に（それからそのスプライトに）。
 static void column_draw(const Vital *v)
 {
     for (int i = 0; i < 32 * 128; i++)
@@ -302,12 +282,10 @@ static void column_draw(const Vital *v)
     for (int i = 0; i < VITAL_SLOTS; i++)
     {
         int y0 = i * SLOT_H;
-        // 細い枠の暗い枠（アイテム選択のものを小さく）
         for (int y = y0; y < y0 + SLOT_H - 2 && y < 128; y++)
             for (int x = 0; x < 32; x++)
                 col_px[y * 32 + x] = (y == y0 || y == y0 + SLOT_H - 3 || x == 0 || x == 31) ? 0x8000 | RGB15(16, 13, 8) : 0x8000 | RGB15(2, 2, 3);
         int empty = i == 2 && v->herbs == 0;
-        // アイコン（32 x 24）を枠に
         for (int y = 0; y < 24; y++)
             for (int x = 0; x < 30; x++)
             {
@@ -333,7 +311,6 @@ static void note_draw(const char *s)
         note_px[i] = s ? 0x8000 | RGB15(2, 2, 3) : 0;
     if (s)
         text_draw16(note_px, 192, 192, 16, 4, 2, RGB15(31, 26, 10), 1, s);
-    // （32 x 16 のスプライト6つを横に並べる：それぞれ幅32の自分のブロック）
     static u16 part[32 * 16];
     for (int k = 0; k < 6; k++)
     {
@@ -359,7 +336,7 @@ void vital_message(const char *s, int frames)
 {
     snprintf(msg, sizeof(msg), "%s", s);
     msg_frames = frames;
-    note_shown = -1;   // （もう出ていても描き直す）
+    note_shown = -1;
     last_sel = -1;
 }
 
@@ -369,15 +346,14 @@ static int map_update(const Vital *v, u32 down, int tick, int touch)
     sprites_init();
     if (mode != 3 || map_stage != v->stage || map_redraw_g)
     {
-        mode = 3;   // （2 はストーリーの場面のもの）
+        mode = 3;
         map_redraw_g = 0;
-        BG_PALETTE_SUB[0] = RGB15(1, 1, 2);   // （平面図が無い所）
+        BG_PALETTE_SUB[0] = RGB15(1, 1, 2);
         map_draw(v->stage);
         col_drawn = 0;
         note_shown = -1;
     }
 
-    // タッチ：ハーブの枠をダブルタップで1つ使う。
     if (touch && ((down & KEY_TOUCH) || fake_x >= 0))
     {
         touchPosition t;
@@ -389,7 +365,7 @@ static int map_update(const Vital *v, u32 down, int tick, int touch)
         }
         else
             touchRead(&t);
-#ifdef TEST_SHOW_TAPS   // テスト用ビルド：各タッチの位置を表示として
+#ifdef TEST_SHOW_TAPS
         {
             char b[24];
             snprintf(b, sizeof(b), "tap %d %d t%d", t.px, t.py, tick);
@@ -419,21 +395,17 @@ static int map_update(const Vital *v, u32 down, int tick, int touch)
     if (msg_frames > 0)
         msg_frames--;
 
-    // マップの回転と位置：レオンの向きが画面の上、彼は MAP_CX, MAP_CY に。
-    // （テクセル = A * (画面 - 画面上のレオン) + レオンのテクセル。A は画面の上を彼の向き
-    // (sin yaw, cos yaw) に、右を彼の右 (-cos, sin) に回し、拡大縮小する。）
     int s = sinLerp(v->leon_yaw), c = cosLerp(v->leon_yaw);
-    int k = (int)(((s64)map_k << 12) / MAP_ZOOM);   // 画面の1ピクセルあたりのテクセル（f32）
+    int k = (int)(((s64)map_k << 12) / MAP_ZOOM);
     int pa = -mulf32(c, k), pb = -mulf32(s, k), pc = mulf32(s, k), pd = -mulf32(c, k);
-    int lx = (int)(((s64)(v->leon_x - inttof32(map_x0)) * map_k) >> 12);   // レオンのテクセル（f32）
+    int lx = (int)(((s64)(v->leon_x - inttof32(map_x0)) * map_k) >> 12);
     int lz = (int)(((s64)(v->leon_z - inttof32(map_z0)) * map_k) >> 12);
-    aff[0] = pa >> 4;   // （レジスタ：8.8 の固定小数点）
+    aff[0] = pa >> 4;
     aff[1] = pb >> 4;
     aff[2] = pc >> 4;
     aff[3] = pd >> 4;
-    aff[4] = (lx - pa * MAP_CX - pb * MAP_CY) >> 4;   // （20.8）
+    aff[4] = (lx - pa * MAP_CX - pb * MAP_CY) >> 4;
     aff[5] = (lz - pc * MAP_CX - pd * MAP_CY) >> 4;
-    // 画面上のアシュリー：レオンからのずれを逆に回す（A の逆：その転置 / k）。
     ash_show = 0;
     if (v->ash_on)
     {
@@ -443,7 +415,6 @@ static int map_update(const Vital *v, u32 down, int tick, int touch)
         ash_show = ash_sx > 40 && ash_sx < 256 && ash_sy >= 0 && ash_sy < 192;
     }
 
-    // 表示するものが変わったら列を、表示が出ている間は表示を。
     if (!col_drawn || v->ammo != col_last.ammo || v->spare != col_last.spare || v->herbs != col_last.herbs
         || v->gun_icon[0] != col_last.gun_icon[0] || v->gun_icon[1] != col_last.gun_icon[1] || v->ammo_icon[0] != col_last.ammo_icon[0])
     {
@@ -460,9 +431,6 @@ static int map_update(const Vital *v, u32 down, int tick, int touch)
     return result;
 }
 
-// アイテム選択（下画面のもう1つの表示、ポーズメニューのオプションで選ぶ）：原作のケースのパネルと
-// レオンの状態と心拍、3つの枠（手に持っている銃、その弾、ハーブ：ハーブをダブルタップで1つ使う）と
-// 説明のパネル。
 static int slot_x(int i) { return 24 + i * 76; }
 
 static void fill(u16 *dst, int x0, int y0, int x1, int y1, u16 c)
@@ -482,14 +450,13 @@ static void layout_game(void)
 {
     backdrop(bg);
     text(bg, 18, 9, RGB15(31, 26, 10), 1, T_ITEMS);
-    blit(bg, &panels, 0, 30, 240, 34, 8, 36, 240, 54, 31);      // バイタルのパネル
+    blit(bg, &panels, 0, 30, 240, 34, 8, 36, 240, 54, 31);
     for (int i = 0; i < VITAL_SLOTS; i++)
         blit(bg, &panels, 8, 96, 50, 30, slot_x(i), SLOT_Y, 64, 40, 31);
-    blit(bg, &panels, 0, 180, 240, 32, 8, 141, 240, 32, 31);    // 説明のパネル
+    blit(bg, &panels, 0, 180, 240, 32, 8, 141, 240, 32, 31);
     text(bg, 10, 177, RGB15(17, 17, 17), 1, T_TOUCH_HINT);
 }
 
-// 位相 0..63 での心拍の線の高さ（基線から上へのピクセル）：P 波、QRS、T 波。
 static int ecg(int t)
 {
     if (t >= 6 && t < 12) return t < 9 ? t - 5 : 12 - t;
@@ -506,7 +473,7 @@ static void line(int x0, int y0, int x1, int y1, u16 c)
     int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx - dy;
     while (1)
     {
-        fill(fb, x0, y0, x0 + 1, y0 + 2, c);   // 高さ2ピクセル：見やすい
+        fill(fb, x0, y0, x0 + 1, y0 + 2, c);
         if (x0 == x1 && y0 == y1)
             break;
         int e2 = 2 * err;
@@ -524,7 +491,7 @@ static int items_update(const Vital *v, u32 down, int tick, int touch)
     if (mode != 1)
     {
         if (mode == 3)
-            bg_plain();   // （マップの回転を戻し、スプライトを隠す）
+            bg_plain();
         mode = 1;
         layout_game();
         memcpy(fb, bg, sizeof(fb));
@@ -532,7 +499,6 @@ static int items_update(const Vital *v, u32 down, int tick, int touch)
         last_sel = last_msg = last_fps = drawn_hp = -1;
     }
 
-    // タッチ：枠。
     if (touch && ((down & KEY_TOUCH) || fake_x >= 0))
     {
         touchPosition t;
@@ -547,12 +513,11 @@ static int items_update(const Vital *v, u32 down, int tick, int touch)
         for (int i = 0; i < VITAL_SLOTS; i++)
             if (t.px >= slot_x(i) - 4 && t.px < slot_x(i) + 68 && t.py >= SLOT_Y - 4 && t.py < SLOT_Y + 44)
             {
-                // 最初のすぐ後に同じ枠をもう一度タッチするとダブルタップ：アイテムを使う（使えるのはハーブだけ）。
                 if (i == tap_slot && tick - tap_tick <= DOUBLE_TAP)
                 {
                     if (i == 2)
                         result = VITAL_USE;
-                    tap_slot = -1;   // 3回目のタッチはやり直し
+                    tap_slot = -1;
                 }
                 else
                 {
@@ -568,7 +533,6 @@ static int items_update(const Vital *v, u32 down, int tick, int touch)
     if (msg_frames > 0)
         msg_frames--;
 
-    // 状態と体力。
     int cond = condition(v);
     if (v->hp != drawn_hp)
     {
@@ -582,7 +546,6 @@ static int items_update(const Vital *v, u32 down, int tick, int touch)
         drawn_hp = v->hp;
     }
 
-    // 心拍：状態が悪いほど速く赤く。
     restore(112, 42, 240, 86);
     int speed = cond + 1, base = 72, prev = base - ecg((112 + tick * speed) & 63);
     for (int x = 114; x <= 236; x += 2)
@@ -593,7 +556,6 @@ static int items_update(const Vital *v, u32 down, int tick, int touch)
     }
     flush(112, 42, 240, 86);
 
-    // 表示するものが変わったら枠と説明を。
     int counts[VITAL_SLOTS] = { v->ammo, v->spare, v->herbs };
     int changed = sel != last_sel || (msg_frames > 0) != last_msg || v->ammo != last.ammo || v->spare != last.spare || v->herbs != last.herbs
                   || v->gun_icon[0] != last.gun_icon[0] || v->gun_icon[1] != last.gun_icon[1] || v->gun_name != last.gun_name || v->mag != last.mag;
@@ -610,7 +572,6 @@ static int items_update(const Vital *v, u32 down, int tick, int touch)
             snprintf(buf, sizeof(buf), "%d", counts[i]);
             text(fb, x + 60 - 7 * (int)strlen(buf), SLOT_Y + 25, empty ? RGB15(17, 17, 17) : RGB15(31, 31, 31), 1, buf);
         }
-        // 選んだ枠のまわりの赤い枠（原作の選択の枠の色）。
         int x = slot_x(sel);
         u16 red = 0x8000 | RGB15(31, 6, 4);
         fill(fb, x - 4, SLOT_Y - 4, x + 68, SLOT_Y - 2, red);

@@ -2,8 +2,8 @@
 
 #include "missile.h"
 
-#define FLIGHT       75                  // 手から地面までのフレーム数
-#define GRAVITY      floattof32(0.035)   // 1フレームあたり、1フレームあたり
+#define FLIGHT       75
+#define GRAVITY      floattof32(0.035)
 #define BOOM_FRAMES  36
 
 void missiles_init(Missiles *s, const Sheet *fx, int fire)
@@ -23,7 +23,6 @@ void missiles_throw(Missiles *s, const int from[3], const int to[3])
         if (m->t >= 0 || m->boom >= 0)
             continue;
         memcpy(m->pos, from, sizeof(m->pos));
-        // FLIGHT フレームでまっすぐ横切る。重力でそこに落ちるだけ上へ。
         m->vel[0] = (to[0] - from[0]) / FLIGHT;
         m->vel[2] = (to[2] - from[2]) / FLIGHT;
         m->vel[1] = (to[1] - from[1]) / FLIGHT + GRAVITY * FLIGHT / 2;
@@ -49,7 +48,6 @@ int missiles_update(Missiles *s, const Ground *g)
         m->pos[1] += m->vel[1];
         m->pos[2] += m->vel[2];
         m->vel[1] -= GRAVITY;
-        // 着地：投げた高さまで下がったとき（上を通る壁の上ではない）、または飛ぶ時間の2倍たったとき。
         int floor = m->land;
         int on = m->vel[1] < 0 && m->pos[1] <= m->land + inttof32(1);
         if (on)
@@ -73,13 +71,11 @@ void missiles_draw(Missiles *s)
         Missile *m = &s->m[i];
         if (m->t >= 0)
         {
-            // 飛んでいる間：燃える岩 / 火のついたダイナマイト、回転しながら。
             u16 col = s->fire ? RGB15(31, 18, 4) : RGB15(31, 28, 16);
             billboard(s->fx, 0, 0, 64, 64, m->pos, inttof32(4), inttof32(4), m->t * 900, 0, col, 31, 40 + i, 0);
         }
         if (m->boom >= 0)
         {
-            // 爆発：大きくなりながら消える閃光。
             int size = inttof32(10) + m->boom * floattof32(0.8);
             int alpha = 31 - m->boom * 30 / BOOM_FRAMES;
             int p[3] = { m->pos[0], m->pos[1] + inttof32(5), m->pos[2] };

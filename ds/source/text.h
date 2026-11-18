@@ -1,18 +1,14 @@
-// 原作のフォント（2d_fnt_00.mct）で描く文字、メイン画面のスプライトとして 3D の絵の上に。
-// フォントの書き出しは表示できる ASCII と、このファイルで使う文字だけを残すので、文字を足したら
-// 書き出し直す（Makefile を参照）。文字は全部英語。
 #ifndef TEXT_H__
 #define TEXT_H__
 
 #include <nds.h>
 
-#define TEXT_LINES      20   // 一度に画面に出す行：0..11 は幅256ピクセルまで、
-#define TEXT_WIDE_LINES 12   // 12..19 は128まで
+#define TEXT_LINES      20
+#define TEXT_WIDE_LINES 12
 #define TEXT_HEIGHT     14
 
 enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 
-// メニューの文字列。
 #define T_NEW_GAME   "NEW GAME"
 #define T_HOWTO      "CONTROLS"
 #define T_RESUME     "RESUME"
@@ -20,13 +16,11 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_TO_TITLE   "QUIT TO TITLE"
 #define T_CONTINUE   "CONTINUE"
 #define T_PAUSE      "PAUSE"
-// ステータス画面の武器の一覧（原作の Status / Armas、Equipar、Usar、Descartar、Cancelar）
 #define T_WEAPONS    "Weapons"
 #define T_ST_EQUIP   "Equip"
 #define T_ST_USE     "Use"
 #define T_ST_DISCARD "Discard"
 #define T_ST_CANCEL  "Cancel"
-// ポーズメニュー：原作の Opções 画面（Bio4_StringLayout.bin）、英語で
 #define T_OPTIONS    "Options"
 #define T_OPT_RETRY  "Retry"
 #define T_OPT_QUIT   "Quit"
@@ -37,7 +31,6 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_HELP_LEAVE "Return to the stage select"
 #define T_HELP_SOUND "Sound settings"
 #define T_HELP_CONTROLS "Control settings"
-// 移植版独自のオプション：HUD（体力と弾）、下画面の表示
 #define T_OPT_HUD    "HUD"
 #define T_OPT_SCREEN "Bottom Screen"
 #define T_HELP_HUD   "Show or hide life and ammo"
@@ -46,7 +39,6 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_HUD_OFF    "Hide"
 #define T_SCR_MAP    "Map"
 #define T_SCR_ITEMS  "Item Select"
-// 左上のボーナス表示（原作の Dano Critico!、Tecnico!、Estrategico!、Joia Adquirida!）
 #define T_BONUS_CRIT  "Critical Damage!"
 #define T_BONUS_TECH  "Technical!"
 #define T_BONUS_STRAT "Strategic!"
@@ -64,9 +56,8 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_ASH_DEAD   "ASHLEY IS DEAD"
 #define T_BACK       "B: BACK"
 #define T_SELECT     "A: SELECT"
-// ステージセレクト
 #define T_STAGE_SELECT "STAGE SELECT"
-#define T_STAGE_N      "STAGE %d  %s"   // 番号、場所
+#define T_STAGE_N      "STAGE %d  %s"
 #define T_SN_1  "VILLAGE"
 #define T_SN_2  "VALLEY"
 #define T_SN_3  "WATERFALL"
@@ -79,19 +70,17 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_SN_10 "CENTRAL HALL"
 #define T_SN_11 "FURNACE"
 #define T_SN_12 "OLD CANAL"
-// アイテムの入手
 #define T_PICK_AMMO    "Multi Ammo +%d"
 #define T_PICK_HERB    "Got a Green Herb"
 #define T_PICK_TREASURE "Treasure! +%d PTAS"
 #define T_PICK_MONEY   "Pesetas +%d PTAS"
 #define T_TREASURE     "TREASURE"
-// ステージの仕掛け：動作の案内（構えていないときの A）、メダル
 #define T_ACT_GATE     "The gate is locked tight."
 #define T_ACT_KICK     "A: Kick"
 #define T_ACT_STRUGGLE "Mash A: Struggle!"
 #define T_ACT_CUT      "A: Climb"
 #define T_ACT_JUMP     "A: Jump"
-#define T_GIANT_CLIMB  "Leon reaches the top of"      // （mis_data_s11 のせりふ、英語で）
+#define T_GIANT_CLIMB  "Leon reaches the top of"
 #define T_GIANT_CLIMB_2 "El Gigante from behind."
 #define T_GIANT_CUT    "Leon cuts the tentacle coming"
 #define T_GIANT_CUT_2  "out of El Gigante's back!"
@@ -106,11 +95,9 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_ACT_DOWN     "A: Climb down"
 #define T_MEDAL        "Blue Medallions %d/%d"
 #define T_MEDAL_ALL    "All medallions shot! Ammo +%d"
-// ミッション（原作のストーリーモード、mis_data_s01）
 #define T_MISSION      "MISSION %d"
 #define T_OBJ_1        "Defeat all the villagers."
 #define T_OBJ_N        "Defeat all the enemies."
-// 各ミッションの目的、終わりのためにイベントが必要とするものから（ミッションフラグ0。NOTES を参照）
 #define T_OBJ_2        "Open the valley's door."
 #define T_OBJ_3        "Get past the waterfall."
 #define T_OBJ_4        "Defeat El Gigante."
@@ -131,10 +118,8 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_KILLS        "KILLS"
 #define T_TOTAL        "TOTAL"
 #define T_PTAS         "%d PTAS"
-// ゲームの外の下画面
 #define T_CAPTION      "RESIDENT EVIL 4"
 #define T_EDITION      "DS Edition Ver1.0"
-// アイテム選択 / バイタル画面
 #define T_ITEMS        "ITEM SELECT"
 #define T_MAP          "MAP"
 #define T_MAP_TAP      "Tap here: items"
@@ -145,7 +130,7 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_ITEM_RIFLE   "Rifle"
 #define T_ITEM_TMP     "TMP"
 #define T_ITEM_ROCKET  "Rocket Launcher"
-#define T_ITEM_AMMO    "Multi Ammo"      // 手に持っている銃用に持っている弾（拾ったものはそこへ）
+#define T_ITEM_AMMO    "Multi Ammo"
 #define T_ITEM_ROUNDS  "Ammo"
 #define T_ITEM_HERB    "Green Herb"
 #define T_DESC_GUN     "Loaded %d/%d"
@@ -157,7 +142,6 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_USED         "Life restored."
 #define T_NONE_LEFT    "None left."
 #define T_SPARE        "AMMO"
-// ミッション前の店（原作の Iniciar、Comprar、Vender、Upgrade。Bio4_StringLayout.bin）
 #define T_MISSION_SHOP "Merchant"
 #define T_SHOP_CASE_NAME "Larger Case"
 #define T_SHOP_START   "Start"
@@ -167,15 +151,13 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_SHOP_LINE_1  "Found something interesting?"
 #define T_SHOP_LINE_2  "Sell me your items!"
 #define T_SHOP_LINE_3  "Going to buy something?"
-#define T_SHOP_DISCOUNT_1 "You're quite a shot."     // （最高ランクの後の Android 版の商人）
+#define T_SHOP_DISCOUNT_1 "You're quite a shot."
 #define T_SHOP_DISCOUNT_2 "I'll give you a discount."
 #define T_SHOP_MONEY   "You don't have enough money!"
 #define T_SHOP_SPACE   "You don't have enough space!"
 #define T_SHOP_MAX     "That's as far as it goes."
 #define T_SHOP_OWNED   "Owned"
 #define T_SHOP_EMPTY   "Nothing here, stranger."
-// 上のバーの商人のせりふ、一覧ごと（Zeebo 版の Bio4_StringLayout.bin 42、43、60：Que pensou em
-// comprar? / Tenho um bom negocio para ti. / ...。売りと改造は Android 版の英語、その動画から）
 #define T_SHOP_ASK_BUY  "What're ya buyin'?"
 #define T_SHOP_ASK_SELL "What do you wanna sell?"
 #define T_SHOP_ASK_UP   "Whaddya want to upgrade?"
@@ -183,7 +165,7 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_SHOP_BOX     "x%d  %d PTAS"
 #define T_SHOP_CASE    "%d  %d PTAS"
 #define T_SHOP_VEST    "-%d%%  %d PTAS"
-#define T_VEST_1       "Tactical Vest"      // （原作の Colete Tatico、de Ferro、Hibrido）
+#define T_VEST_1       "Tactical Vest"
 #define T_VEST_2       "Iron Vest"
 #define T_VEST_3       "Hybrid Vest"
 #define T_SHOP_NEXT    "%s > %s  %d"
@@ -193,7 +175,6 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_STAT_CAPACITY "Capacity"
 #define T_STAT_RATE    "Firing Speed"
 #define T_STAT_RELOAD  "Reload Speed"
-// ステージクリア
 #define T_CLEAR        "STAGE CLEAR"
 #define T_ENEMIES      "ENEMIES"
 #define T_ACCURACY     "ACCURACY"
@@ -201,7 +182,6 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
 #define T_DAMAGE       "DAMAGE TAKEN"
 #define T_RANK         "RANK"
 #define T_PRESS_A      "PRESS A"
-// 操作説明の画面、左の列 = ボタン、右の列 = 動作。
 #define T_HOWTO_KEYS \
     "D-Pad", "Move / turn", \
     "B+Up", "Run", \
@@ -210,27 +190,19 @@ enum { TEXT_WHITE, TEXT_GOLD, TEXT_RED, TEXT_GREY, TEXT_GREEN, TEXT_PINK };
     "L+A", "Knife", \
     "Y", "Reload", \
     "X, L+X", "Draw gun, next weapon", \
-    "START", "Pause"   // （8行：操作説明の画面はそれ以上出さない）
+    "START", "Pause"
 
-// RDF1 のフォントを読み、メイン画面のスプライトを準備する（VRAM F と G）。成功で0を返す。
 int text_init(const void *font, size_t size);
 
-// s の幅、ピクセル。
 int text_width(const char *s);
 
-// 行 i を (x, y) に出す。文字は文字列が変わったときだけ描き直す。
 void text_line(int i, int x, int y, int color, const char *s);
-// 同じもの、2倍の大きさで（スプライトの拡大）：幅 2 x text_width()、高さ28ピクセル。広い行
-// （0..TEXT_WIDE_LINES-1）だけ、文字はスプライト4つまで（拡大前で128ピクセル）。
 void text_big(int i, int x, int y, int color, const char *s);
 void text_hide(int i);
 void text_clear(void);
 
-// スプライトを書く。vblank の待ちのすぐ後に呼ぶ。
 void text_commit(void);
 
-// s を16ビットのビットマップ（RGB15 | ビット15）に影付きで、1倍か2倍の大きさで、w x h に切り取って
-// 描く。描いた幅を返す。
 int text_draw16(u16 *dst, int stride, int w, int h, int x, int y, u16 color, int scale, const char *s);
 
 #endif

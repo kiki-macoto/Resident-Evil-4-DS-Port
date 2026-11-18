@@ -1,22 +1,3 @@
-// DS 用の 2D の書き出し：絵のシート（HUD の部品、タイトルの絵）とゲームのフォント。
-//
-// シート（.bin、「RD2D」）：MCT のテクスチャ（または .mcts のセットのテクスチャ #part）の一部、
-// 大きさを変えることもでき、1枚の DS のテクスチャとして：256色、または「!glow」で明るさを
-// アルファにした A5I3（原作が絵に加算する光のエフェクト用）。
-// 「!bmp」なら代わりに普通の 2D のビットマップ（「RD2B」：u16 幅、高さ、それから不透明な所で
-// ビット15を立てた RGB15 のピクセル）、下画面の16ビットの背景用。
-//   char magic[4] 「RD2D」。u16 imageWidth、imageHeight（絵。テクスチャは左上から2のべき乗に
-//   余白を足す）。それから RDS1 のモデルと同じテクスチャのレコード1つ：
-//   u16 width、height。u8 type（4 = GL_RGB256）。u8 flags（1 = 色0は透明）。
-//   u16 paletteColors。u32 dataBytes。u8 data[]。u16 palette[]。4に揃える。
-//
-// フォント（.bin、「RDF1」）：テキストファイルが使う 2d_fnt_00.mct の文字（と表示できる ASCII）。
-//   char magic[4] 「RDF1」。u16 glyphCount、u16 height（14）
-//   コード順の文字：u16 code（Unicode）、u8 幅（7 か 14）、u8 0、u32 rows[height]
-//   各行は1ピクセル2ビット、一番左のピクセルが下位ビット：0 = 空、1..3 = 暗い..明るい。
-//
-// フォントのテクスチャは14ピクセルの行の格子：まず 2d_fnt.hfi の1バイト文字を7ピクセルのマスで、
-// 次に2バイト（Shift-JIS）文字を14ピクセルのマスで、各行を左から右へ埋める。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -26,9 +7,6 @@ namespace Re4Zeebo
 {
     public static partial class Tool
     {
-        // sheetSpecs：「name=archive/file.mct@x,y,w,h[>W,H]」（切り取って、W x H に大きさを変える）。
-        // fontSpecs：「name=archive/font.mct;archive/font.hfi;textfile」（テキストファイルは残す文字を
-        //             並べたもの。たとえばメニューの文字列のある C のソース）。
         public static List<string> Export2D(string input, string outDir, string[] sheetSpecs, string[] fontSpecs, Action<string> log)
         {
             Directory.CreateDirectory(outDir);
@@ -59,8 +37,6 @@ namespace Re4Zeebo
                 int eq = sp.IndexOf('=');
                 if (eq <= 0) throw new ArgumentException("sheet spec must be name=archive/file.mct[#part]@x,y,w,h[>W,H][!cutWxH][|...][&...][!glow]:" + spec);
                 string name = sp.Substring(0, eq);
-                // 「|」で区切った複数のソースは上から下へ、左揃えで積む。「&」でつないだソースは1行に横に並べる
-                // （上揃え、行の高さは一番高いもの）。
                 var pieces = new List<Tuple<byte[], int, int>>();
                 foreach (var row in sp.Substring(eq + 1).Split('|'))
                 {
@@ -97,7 +73,6 @@ namespace Re4Zeebo
                 }
                 if (bmp)
                 {
-                    // 16ビットの背景（下画面）用の 2D のビットマップ：RGB15、ビット15 = 不透明。
                     using (var bw = new BinaryWriter(File.Create(Path.Combine(outDir, name + ".bin"))))
                     {
                         bw.Write(Encoding.ASCII.GetBytes("RD2B"));
@@ -131,16 +106,10 @@ namespace Re4Zeebo
             return report;
         }
 
-        // 画像ファイルを読む：{ byte[] BGRA のピクセル, int 幅, int 高さ } を返す（System.Drawing が
-        // 使える re4zeebo.ps1 が設定する）。
         public static Func<string, object[]> ImageLoader;
 
-        // シートの1つのソース：「archive/file.mct[#part]@x,y,w,h[>W,H][!cutWxH]」、または画像ファイルなら
-        // 「file:path/image.png@...」。
         static byte[] LoadPiece(string src, Func<string, byte[]> file, out int iw, out int ih)
         {
-            // 「!cutWxH」：W x H のマスの格子に並んだ黒地のアイコン。各マスの端まで届く黒は透明になる
-            // （アイコンの中の黒は残る）。
             int cutW = 0, cutH = 0, cut = src.LastIndexOf("!cut");
             if (cut > 0)
             {
@@ -157,7 +126,6 @@ namespace Re4Zeebo
             byte[] rgba;
             if (path.StartsWith("file:"))
             {
-                // ディスク上の画像ファイル（たとえば編集した絵）、ImageLoader で読む。
                 if (ImageLoader == null) throw new InvalidOperationException("no image loader for " + path);
                 var img = ImageLoader(path.Substring(5));
                 var bgra = (byte[])img[0];
@@ -196,7 +164,6 @@ namespace Re4Zeebo
             return Mct.DecodeRgba(data, m);
         }
 
-        // マスの縁のほぼ黒のピクセル全部から、マスの中で塗りつぶす。
         static void CutBlack(byte[] rgba, int w, int h, int cw, int ch)
         {
             Func<int, bool> dark = i => rgba[i * 4 + 3] >= 128 && Math.Max(rgba[i * 4], Math.Max(rgba[i * 4 + 1], rgba[i * 4 + 2])) <= 12;
@@ -220,7 +187,6 @@ namespace Re4Zeebo
 
         static int Pow2(int v) { int p = 8; while (p < v) p <<= 1; return p; }
 
-        // (x, y) の w x h のブロックをコピーする。ソースの外（または srcRows より下）のピクセルは透明。
         static byte[] Crop(byte[] rgba, int srcW, int x, int y, int w, int h, int srcRows = int.MaxValue)
         {
             int srcH = Math.Min(srcRows, rgba.Length / 4 / srcW);
@@ -235,7 +201,6 @@ namespace Re4Zeebo
             return o;
         }
 
-        // 面積平均の縮小（出力の各ピクセルは、それが覆うソースの範囲を平均する）。
         static byte[] Resize(byte[] rgba, int w, int h, int nw, int nh)
         {
             var o = new byte[nw * nh * 4];
@@ -276,8 +241,7 @@ namespace Re4Zeebo
             if (hfi.Length < 11 || hfi[0] != 'H' || hfi[1] != 'F' || hfi[2] != 'I') throw new InvalidDataException("not an HFI font map");
             int singles = hfi[7] | hfi[8] << 8, doubles = hfi[9] | hfi[10] << 8;
             var sjis = Encoding.GetEncoding(932);
-            // 文字ごとの文字の位置：原作が並べるとおりに格子をたどる。
-            var cells = new Dictionary<char, int[]>();   // x, y, 幅
+            var cells = new Dictionary<char, int[]>();
             int cx = 0, cy = 0;
             for (int i = 0; i < singles + doubles; i++)
             {
@@ -289,7 +253,7 @@ namespace Re4Zeebo
                 else
                 {
                     int o = 11 + singles + (i - singles) * 2;
-                    s = sjis.GetString(new[] { hfi[o + 1], hfi[o] });   // リトルエンディアンの u16 で保存
+                    s = sjis.GetString(new[] { hfi[o + 1], hfi[o] });
                 }
                 if (s.Length == 1 && !cells.ContainsKey(s[0])) cells[s[0]] = new[] { cx, cy, cw };
                 cx += cw;
@@ -297,7 +261,6 @@ namespace Re4Zeebo
 
             var want = new SortedSet<char>();
             for (char c = '!'; c <= '~'; c++) want.Add(c);
-            // 文字列リテラル（"..."）の中の文字だけを取る（コメントの日本語は対象外）
             foreach (System.Text.RegularExpressions.Match lit in System.Text.RegularExpressions.Regex.Matches(text, "\"(?:\\\\.|[^\"\\\\\\r\\n])*\""))
                 foreach (char c in lit.Value) if (c > '~') want.Add(c);
             var missing = new StringBuilder();

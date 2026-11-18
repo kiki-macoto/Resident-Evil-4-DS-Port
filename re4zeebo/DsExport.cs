@@ -1,25 +1,3 @@
-// MCM のモデルとその MCT のテクスチャを、DS ですぐ使えるバイナリ（.bin、リトルエンディアン）に書き出す：
-//
-//   ヘッダー（64バイト）
-//     char  magic[4] 「RDS1」
-//     u16   textureCount, drawCount
-//     s32   center[3]      f32（20.12）：頂点の基準になるモデル空間の点
-//     u16   shift          頂点は 2^shift で割って保存。glScalef32(1 << shift) で描く
-//     u16   flags          1 = スキン付き：頂点はそのボーンのバインド空間にあり、リストは
-//                          MTX_RESTORE(slot base + node) でボーンを切り替え、骨格は描画の後に続く
-//     s32   bboxMin[3], bboxMax[3]   f32、モデル空間
-//     s32   ground[3]      f32、バウンディングボックスの中心の下で一番高い面の点（出現地点）
-//     u32   triangleCount
-//   textures[textureCount]
-//     u16 width, height。u8 type（GL_TEXTURE_TYPE_ENUM）。u8 flags（1 = 色0は透明）。
-//     u16 paletteColors。u32 dataBytes。u8 data[dataBytes]。u16 palette[paletteColors]。4に揃える
-//   draws[drawCount]
-//     u16 texture（0xFFFF = なし）。u8 transparent。u8 pad。u32 triangles。
-//     s32 centre[3], radius   f32、ワールド空間：分割したモデルだけ（フラグ2：ステージ）
-//     u32 list[1 + n]      glCallList() のパックした GX のリスト、list[0] = n
-//   skeleton（スキン付きだけ）
-//     u16 nodes, u16 slotBase。ノードごとに：s16 parent、u16 0、s32 local[12]（f32：3x3 の回転の行、平行移動）
-// アニメーションは別の RDA1 ファイルへ（WriteAnimations を参照）。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -31,7 +9,7 @@ namespace Re4Zeebo
     {
         public int W, H;
         public bool Transparent;
-        public int Type = 4;   // GL_TEXTURE_TYPE_ENUM：4 = GL_RGB256、6 = GL_RGB8_A5（A5I3）
+        public int Type = 4;
         public byte[] Indices;
         public ushort[] Palette;
         public int Bytes { get { return Indices.Length + Palette.Length * 2; } }
@@ -41,7 +19,6 @@ namespace Re4Zeebo
     {
         public static int Rgb15(int r, int g, int b) { return (r >> 3) | (g >> 3) << 5 | (b >> 3) << 10; }
 
-        // 各方向に 2^shift のボックスフィルター（アルファも平均する）。
         public static byte[] Downscale(byte[] rgba, int w, int h, int shift, out int nw, out int nh)
         {
             int f = 1 << shift;
@@ -59,8 +36,6 @@ namespace Re4Zeebo
             return o;
         }
 
-        // RGB555 空間でのメディアンカットによる256色（GL_RGB256）への変換。
-        // アルファが128未満のピクセルは番号0になり、それが透明になる。
         public static DsTexture ToRgb256(byte[] rgba, int w, int h)
         {
             var hist = new Dictionary<int, int>();
@@ -84,8 +59,6 @@ namespace Re4Zeebo
             return t;
         }
 
-        // 場面の上に描く光用の A5I3（GL_RGB8_A5）：ソースは黒地の光（原作は絵に加算する）なので、明るさが
-        // アルファ（5ビット）に、色は明るさを最大に戻して8つのパレットのエントリーの1つになる。
         public static DsTexture ToGlow(byte[] rgba, int w, int h)
         {
             var hist = new Dictionary<int, int>();
@@ -117,7 +90,6 @@ namespace Re4Zeebo
             if (hist.Count <= max) return new List<int>(hist.Keys);
             while (boxes.Count < max)
             {
-                // チャンネルの範囲が一番大きい箱を、ピクセル数で重みを付けて分ける。
                 int best = -1, bestCh = 0; long bestScore = 0;
                 for (int i = 0; i < boxes.Count; i++)
                 {
@@ -164,8 +136,6 @@ namespace Re4Zeebo
         }
     }
 
-    // パックした GX のコマンドのリスト（GBATEK「Geometry Commands」）：最大4つのコマンドの ID を持つ
-    // 見出しのワード1つと、その後にその引数。使わない ID は NOP（0）。
     public class GxList
     {
         public const byte MTX_RESTORE = 0x14, COLOR = 0x20, TEXCOORD = 0x22, VTX_16 = 0x23, BEGIN_VTXS = 0x40;
@@ -188,7 +158,6 @@ namespace Re4Zeebo
             cmds.Clear(); args.Clear();
         }
 
-        // どの見出しにも頂点のコマンドがあるので、引数の無いものは無い（END_VTXS は何もしないので省く）。
         public uint[] ToArray()
         {
             Flush();
@@ -207,9 +176,6 @@ namespace Re4Zeebo
 
     public static partial class Tool
     {
-        // specs：「name=archive/file.mcms[#part]」。spec ごとに <outDir>/<name>.bin を書く。
-        // テクスチャは全部が vramBudget バイトに収まるまで（大きいものから）半分にする。
-        // groundSpecs：「name=model」で、書き出したモデルの床の三角形を <outDir>/<name>.bin に書く。
         public static List<string> ExportDs(string input, string outDir, string[] specs, string[] animSpecs, string[] groundSpecs, int vramBudget, Action<string> log)
         {
             Directory.CreateDirectory(outDir);
@@ -241,7 +207,6 @@ namespace Re4Zeebo
                 }
             }
 
-            // 頼まれたモデルを読む（Item4/Item5：骨格とスキン、スキン付きでなければ null）。
             var models = new List<Tuple<string, MeshStats, Func<int, TexRef>, Skeleton, SkinInfluence[]>>();
             var lods = new Dictionary<string, float>();
             foreach (var spec in specs)
@@ -283,7 +248,6 @@ namespace Re4Zeebo
                 models.Add(Tuple.Create(name, s, texOf, skel, skin));
             }
 
-            // アニメーション：「name=archive/file.mcas#i,j,k」-> <outDir>/<name>.bin
             foreach (var spec in animSpecs ?? new string[0])
             {
                 int eq = spec.IndexOf('='), hash = spec.IndexOf('#');
@@ -302,7 +266,6 @@ namespace Re4Zeebo
                 };
                 foreach (var t in spec.Substring(hash + 1).Split(','))
                 {
-                    // 「a~b@p」：クリップ a の最初のフレームからクリップ b のものへ p パーセント進んだ静止ポーズ。
                     int tilde = t.IndexOf('~'), at = t.IndexOf('@');
                     if (tilde > 0 && at > tilde)
                         list.Add(Anim.MixPoses(clip(int.Parse(t.Substring(0, tilde))), clip(int.Parse(t.Substring(tilde + 1, at - tilde - 1))), int.Parse(t.Substring(at + 1)) / 100f));
@@ -313,7 +276,6 @@ namespace Re4Zeebo
                 log(string.Format("  {0}: {1} animations ({2} frames)", name, list.Count, string.Join(", ", list.ConvertAll(a => a.Frames.ToString()))));
             }
 
-            // 書き出す全部のモデルにわたるテクスチャの予算（1テクセル8ビット + パレット）。
             var used = new List<TexRef>();
             foreach (var m in models)
                 foreach (var d in m.Item2.Draws)
@@ -354,26 +316,21 @@ namespace Re4Zeebo
                 int eq = spec.IndexOf('=');
                 if (eq <= 0) throw new ArgumentException("ground spec must be name=model: " + spec);
                 string name = spec.Substring(0, eq), model = spec.Substring(eq + 1);
-                // 「name=model+archive/stg_data_NN.bin」で原作自身の当たり判定の壁と床を足す。
                 List<float[]> extra = null, extraFloors = null, rayFloors = null, rayWalls = null;
                 int plus = model.IndexOf('+');
                 if (plus > 0)
                 {
                     byte[] sd;
                     if (!files.TryGetValue(model.Substring(plus + 1), out sd)) throw new FileNotFoundException("stage data not found: " + model.Substring(plus + 1));
-                    // セクション1（+8 のオフセット）：u32 グループ数、u32 三角形数、u32、それからグループごとに16バイト
-                    // （StageDataWalls を参照）、それから三角形（角ごとに x, y, z）。
                     extraFloors = new List<float[]>();
                     rayFloors = new List<float[]>();
                     rayWalls = new List<float[]>();
-                    // 12面のデータはモデルから 468, 988 ずれている（ミッションの地点と同じく）。
                     bool stage12 = model.Substring(plus + 1).EndsWith("stg_data_12.bin");
                     extra = StageDataWalls(sd, BitConverter.ToInt32(sd, 8), extraFloors, stage12 ? -468f : 0f, stage12 ? -988f : 0f, rayFloors, rayWalls, stage12);
                     model = model.Substring(0, plus);
                 }
                 var m = models.Find(x => x.Item1 == model);
                 if (m == null) throw new ArgumentException("ground spec refers to a model not in -DsModel: " + model);
-                // 透けるテクセル（葉の切り抜き）のある描画は壁にしない。
                 Func<DrawRecord, bool> cutout = d => { var r = m.Item3(d.Material); return r != null && converted[r].Transparent; };
                 report.Add(WriteGround(Path.Combine(outDir, name + ".bin"), name, m.Item2, 16f, cutout, extra, extraFloors, rayFloors, rayWalls));
             }
@@ -382,12 +339,9 @@ namespace Re4Zeebo
 
         static int F32(float v) { return (int)Math.Round(v * 4096); }
 
-        public const int BoneSlotBase = 2;   // 行列のスタックのスロット 0/1 は model_draw() が使う
-        public const int MaxDsNodes = 28;    // MODEL_MAX_NODES（と31のうちスロット BoneSlotBase..29）
+        public const int BoneSlotBase = 2;
+        public const int MaxDsNodes = 28;
 
-        // 最初の MaxDsNodes 個のノードを残す（アシュリーのスカートのボーン、20以上、は最後の葉）：落とした
-        // ノードの頂点は、残した一番近い先祖と一緒に動く。アニメーションも同じノードに切り詰める
-        // （WriteAnimations）。
         static void TrimSkeleton(Skeleton s, SkinInfluence[] skin)
         {
             Func<int, int> kept = n => { while (n >= MaxDsNodes) n = s.Parent[n]; return n; };
@@ -399,13 +353,9 @@ namespace Re4Zeebo
             Array.Resize(ref s.Local, MaxDsNodes);
         }
 
-        // 軽くしたスキン付きのメッシュ（-DsModel 'name=file!lodNN'：三角形の NN パーセント）：一番短い辺を
-        // 縮め、一方の端をもう一方に寄せる。残った三角形の向きは保つ。同じボーンの頂点の間だけ。テクスチャの
-        // 継ぎ目の頂点（同じ場所の対の頂点が取り残される：ひび）、2つの描画で使う頂点、開いた縁の頂点は
-        // 決して寄せない。DS は1フレーム2048ポリゴン：レオン（1157）とアシュリー（944）で半分を使っていた。
         static List<DrawRecord> Decimate(List<DrawRecord> draws, VertexBlock sv, int[] bone, float keep)
         {
-            var tris = new List<int[]>();   // 描画, a, b, c
+            var tris = new List<int[]>();
             for (int di = 0; di < draws.Count; di++)
                 Mcm.ForEachTriangle(draws[di].PrimType, draws[di].Indices, (a, b, c) => { if (a != b && b != c && a != c) tris.Add(new[] { di, a, b, c }); });
             int target = (int)(tris.Count * keep);
@@ -448,7 +398,6 @@ namespace Re4Zeebo
                             if (c < best) { best = c; ba = a; bb = b; }
                         }
                 if (ba < 0) break;
-                // a のまわりの三角形、a を b に寄せたとき：どれも裏返ったり消えたりしてはいけない。
                 bool ok = true;
                 foreach (var t in tris)
                 {
@@ -462,7 +411,7 @@ namespace Re4Zeebo
                 if (!ok) { bad.Add((long)ba << 32 | (uint)bb); continue; }
                 tris.RemoveAll(t => Array.IndexOf(t, ba, 1) > 0 && Array.IndexOf(t, bb, 1) > 0);
                 foreach (var t in tris) { int i = Array.IndexOf(t, ba, 1); if (i > 0) t[i] = bb; }
-                locked.Add(ba);   // （消えた）
+                locked.Add(ba);
                 bad.Clear();
             }
             var outDraws = new List<DrawRecord>();
@@ -480,8 +429,6 @@ namespace Re4Zeebo
         {
             var rep = new DsModelReport { Name = name };
 
-            // スキン付き：各頂点は一番重いボーンに従い（DS は行列を混ぜられない）、そのボーンのバインド空間で
-            // 保存する。描画リストは MTX_RESTORE でボーンの行列を選ぶ。
             VertexBlock sv = skel != null ? s.VertexBlocks[0] : null;
             int[] bone = null;
             float[] local = null;
@@ -513,7 +460,6 @@ namespace Re4Zeebo
                 for (int k = 0; k < 3; k++) { center[k] = (lo[k] + hi[k]) / 2; ext = Math.Max(ext, (hi[k] - lo[k]) / 2); }
             else
                 foreach (var c in local) ext = Math.Max(ext, Math.Abs(c));
-            // v16 は 4.12 の固定小数点：|座標| を8未満に保つ。
             int shift = 0;
             while (ext / (1 << shift) >= 7.99f) shift++;
             rep.Shift = shift;
@@ -523,7 +469,6 @@ namespace Re4Zeebo
             var lists = new List<Tuple<int, bool, int, uint[]>>();
             var twoSided = new List<bool>();
             var chunkOf = new List<float[]>();
-            // 不透明な描画を先に、それから透明なテクセルのある描画。
             var order = new List<DrawRecord>(s.Draws.FindAll(d => d.Vertices != null));
             if (lod < 1 && sv != null && order.TrueForAll(d => d.Vertices == sv))
                 order = Decimate(order, sv, bone, lod);
@@ -540,8 +485,6 @@ namespace Re4Zeebo
                 var gx = new GxList();
                 int lastColor = -1, lastBone = -1, tris = 0;
                 if (v.Color == null) { gx.Cmd(GxList.COLOR, 0x7FFF); lastColor = 0x7FFF; }
-                // テクスチャ座標は 12.4 のテクセル（+-2048）：各ストリップ / 三角形を、繰り返しの整数倍だけ動かして
-                // 0の近くに置く（その最小の s, t の床関数）。
                 Func<IList<int>, float[]> uvBase = ids =>
                 {
                     float os = 0, ot = 0;
@@ -588,10 +531,6 @@ namespace Re4Zeebo
                         gx.Cmd(GxList.VTX_16, (uint)(ushort)x | (uint)(ushort)y << 16, (uint)(ushort)z);
                     }
                 };
-                // ストリップはストリップのまま（BEGIN_VTXS 2）：隣の三角形は頂点を共有し、DS の頂点 RAM（1フレーム
-                // 6144）はそれを1回と数える。ソースのストリップは縮退したつなぎ目で区間に切る。最初の三角形の巻き方が
-                // 奇数の区間は、最初の頂点を2回で始める（空の三角形1つ）。12.4 のテクスチャ座標にはテクスチャ空間で
-                // 広すぎる区間と、三角形の一覧は、三角形として出す。
                 var single = new List<int[]>();
                 if (d.PrimType == 4)
                     Mcm.ForEachTriangle(d.PrimType, d.Indices, (a, b, c) => single.Add(new[] { a, b, c }));
@@ -610,8 +549,8 @@ namespace Re4Zeebo
                         if (uvFits(run))
                         {
                             var b0 = uvBase(run);
-                            gx.Cmd(GxList.BEGIN_VTXS, 2);   // GL_TRIANGLE_STRIP
-                            if (((rs + 2) & 1) != 0) vertex(run[0], b0[0], b0[1]);   // 奇数の巻き方が先
+                            gx.Cmd(GxList.BEGIN_VTXS, 2);
+                            if (((rs + 2) & 1) != 0) vertex(run[0], b0[0], b0[1]);
                             foreach (int i in run) vertex(i, b0[0], b0[1]);
                             tris += run.Count - 2;
                         }
@@ -621,12 +560,12 @@ namespace Re4Zeebo
                                 int a = idx[i - 2], c = idx[i - 1], dd = idx[i];
                                 single.Add((i & 1) == 0 ? new[] { a, c, dd } : new[] { c, a, dd });
                             }
-                        rs = e - 1;   // 次の区間はこの区間の最後の辺から始まる
+                        rs = e - 1;
                     }
                 }
                 if (single.Count > 0)
                 {
-                    gx.Cmd(GxList.BEGIN_VTXS, 0);   // GL_TRIANGLES
+                    gx.Cmd(GxList.BEGIN_VTXS, 0);
                     foreach (var t in single)
                     {
                         var b0 = uvBase(t);
@@ -636,7 +575,6 @@ namespace Re4Zeebo
                 }
                 lists.Add(Tuple.Create(ti, tex != null && tex.Transparent, tris, gx.ToArray()));
                 var mat = s.Materials.Find(x => x.Key == d.Material);
-                // （ステージのモデルだけ：キャラクターと物は片面で描く。フラグを読む前にそう作って DS で試したので。）
                 twoSided.Add(chunked && mat != null && mat.Cull == 2);
                 chunkOf.Add(chunked ? ChunkBounds(d) : null);
                 rep.Triangles += tris;
@@ -650,7 +588,7 @@ namespace Re4Zeebo
                 bw.Write(Encoding.ASCII.GetBytes("RDS1"));
                 bw.Write((ushort)texList.Count); bw.Write((ushort)lists.Count);
                 foreach (var c in center) bw.Write(F32(c));
-                bw.Write((ushort)shift); bw.Write((ushort)((skel != null ? 1 : 0) | (chunked ? 2 : 0)));   // flags：1 = スキン付き、2 = 分割
+                bw.Write((ushort)shift); bw.Write((ushort)((skel != null ? 1 : 0) | (chunked ? 2 : 0)));
                 foreach (var c in lo) bw.Write(F32(c));
                 foreach (var c in hi) bw.Write(F32(c));
                 bw.Write(F32((lo[0] + hi[0]) / 2)); bw.Write(F32(ground)); bw.Write(F32((lo[2] + hi[2]) / 2));
@@ -658,7 +596,7 @@ namespace Re4Zeebo
                 foreach (var t in texList)
                 {
                     bw.Write((ushort)t.W); bw.Write((ushort)t.H);
-                    bw.Write((byte)4);   // GL_RGB256
+                    bw.Write((byte)4);
                     bw.Write((byte)(t.Transparent ? 1 : 0));
                     bw.Write((ushort)t.Palette.Length);
                     bw.Write((uint)t.Indices.Length);
@@ -671,7 +609,7 @@ namespace Re4Zeebo
                 {
                     var l = lists[li];
                     bw.Write((ushort)(l.Item1 < 0 ? 0xFFFF : l.Item1));
-                    bw.Write((byte)(l.Item2 ? 1 : 0)); bw.Write((byte)(twoSided[li] ? 1 : 0));   // 透明。両面
+                    bw.Write((byte)(l.Item2 ? 1 : 0)); bw.Write((byte)(twoSided[li] ? 1 : 0));
                     bw.Write((uint)l.Item3);
                     if (chunked) foreach (var c in chunkOf[li]) bw.Write(F32(c));
                     foreach (var w in l.Item4) bw.Write(w);
@@ -679,7 +617,6 @@ namespace Re4Zeebo
                 }
                 if (skel != null)
                 {
-                    // skeleton：u16 nodes、u16 slot base、ノードごとに：s16 parent、u16 0、s32 local[12]（f32、回転の行 + 平行移動）
                     bw.Write((ushort)skel.Count); bw.Write((ushort)BoneSlotBase);
                     for (int i = 0; i < skel.Count; i++)
                     {
@@ -691,21 +628,13 @@ namespace Re4Zeebo
             return rep;
         }
 
-        // RDA1：char magic[4]、u16 animations、u16 nodes、u32 offset[animations]。
-        // アニメーションごとに：u16 frames、u16 0、それからノードごとに：u16 translationKeys、u16 rotationKeys、
-        // { u16 frame, u16 0, s32 x, y, z } のキー（平行移動は f32。回転は libnds の角度の単位、1回転
-        // 32768、線形補間が短い方を通るよう巻き戻しを解く）。
-        // 床の上の敷物、じゅうたん、しみ（すぐ下に別の描画の平らな三角形がある）：DS の深度バッファは
-        // これほど近い2つの面を区別できず、まだらに見せるので、小さい方を少し持ち上げる。いくつの描画を
-        // 持ち上げたかを返す。
         const float DecalLift = 0.15f, DecalGap = 0.3f;
 
         static int MarkDecals(List<DrawRecord> draws)
         {
-            // 各描画の平らな（上向きの）三角形：重心、角、高さ、面積。
             var flat = new List<float[]>[draws.Count];
             var area = new float[draws.Count];
-            var grid = new Dictionary<long, List<int[]>>();   // マス -> (描画, 三角形)
+            var grid = new Dictionary<long, List<int[]>>();
             for (int di = 0; di < draws.Count; di++)
             {
                 var d = draws[di];
@@ -724,7 +653,6 @@ namespace Re4Zeebo
                     var t = new[] { (ax + bx + cx) / 3, (ay + by + cy) / 3, (az + bz + cz) / 3, ax, az, bx, bz, cx, cz, len / 2 };
                     area[di] += len / 2;
                     list.Add(t);
-                    // （それが覆うすべてのマスに：大きな床の三角形は重心から遠くまで届く。）
                     int x0 = (int)Math.Floor(Math.Min(ax, Math.Min(bx, cx)) / 4), x1 = (int)Math.Floor(Math.Max(ax, Math.Max(bx, cx)) / 4);
                     int z0 = (int)Math.Floor(Math.Min(az, Math.Min(bz, cz)) / 4), z1 = (int)Math.Floor(Math.Max(az, Math.Max(bz, cz)) / 4);
                     for (int gx = x0; gx <= x1 && gx - x0 < 64; gx++)
@@ -748,7 +676,6 @@ namespace Re4Zeebo
             for (int di = 0; di < draws.Count; di++)
             {
                 if (flat[di].Count == 0) continue;
-                // ほとんどが平らで、その大半が別の描画の（もっと大きい）床の上。
                 float over = 0;
                 foreach (var t in flat[di])
                 {
@@ -771,10 +698,8 @@ namespace Re4Zeebo
             return marked;
         }
 
-        // ステージの描画を場所ごとに分け、各テクスチャの三角形をこの大きさのマスに分ける。カメラの近くの
-        // ものだけ送ればよいように（DS は1フレームに2048ポリゴンを描く）。
         const float ChunkSize = 72f;
-        const int ChunkRun = 24;   // 1つのストリップの最大の三角形数（長いものは遠くまで届きすぎる）
+        const int ChunkRun = 24;
 
         static List<DrawRecord> SplitChunks(List<DrawRecord> draws, float size)
         {
@@ -788,13 +713,10 @@ namespace Re4Zeebo
                 Func<IList<int>, long> cellOf = ids =>
                 {
                     float x = 0, z = 0;
-                    var pos = grow[v].Pos;   // （切った辺の中点も含めて）
+                    var pos = grow[v].Pos;
                     foreach (int i in ids) { x += pos[i * 3]; z += pos[i * 3 + 2]; }
                     return (long)Math.Floor(x / ids.Count / size) * 100000 + (long)Math.Floor(z / ids.Count / size);
                 };
-                // 大きな三角形（辺が MaxEdge を超える）は小さく切り、長い辺はどれも中点で切る：実機の DS では
-                // カメラに近い大きな三角形が丸ごと消えることがある（屋内のステージの壁と床）。辺の中点は1回だけ作る
-                // （辺の両端で）ので、その両側の三角形は同じように切られる：ひびは無い。
                 VertexGrowth gv;
                 if (!grow.TryGetValue(v, out gv)) grow[v] = gv = new VertexGrowth(v);
                 Func<int, int, bool> tooLong = (a, b) =>
@@ -820,7 +742,6 @@ namespace Re4Zeebo
                         sub(a, m1, m3, depth + 1); sub(m1, b, m2, depth + 1); sub(m3, m2, c, depth + 1); sub(m1, m2, m3, depth + 1);
                         return;
                     }
-                    // 長い辺が1つか2つ：ab が長くなるように回す（2つなら bc も）。
                     if (n == 1 ? !ab : !(ab && bc))
                     {
                         if (n == 1 ? bc : (bc && ca)) { sub(b, c, a, depth); return; }
@@ -854,7 +775,6 @@ namespace Re4Zeebo
                             big = tooLong(idx[i - 2], idx[i - 1]) || tooLong(idx[i - 1], idx[i]) || tooLong(idx[i - 2], idx[i]);
                         if (big)
                         {
-                            // 三角形として（巻き方はストリップでのとおり）、大きさまで切る。
                             for (int i = rs + 2; i <= e; i++)
                             {
                                 int a = idx[i - 2], b = idx[i - 1], cc = idx[i];
@@ -866,7 +786,6 @@ namespace Re4Zeebo
                         long k = cellOf(run);
                         if (!cells.ContainsKey(k)) cells[k] = new List<int>();
                         var c = cells[k];
-                        // 空の三角形でつないだ区間、それぞれ元の偶奇（巻き方）で始まる。
                         if (c.Count > 0) { c.Add(c[c.Count - 1]); c.Add(run[0]); c.Add(run[0]); }
                         if ((c.Count & 1) != (rs & 1)) c.Add(run[0]);
                         c.AddRange(run);
@@ -883,11 +802,8 @@ namespace Re4Zeebo
             return o;
         }
 
-        // （単位。レオンの身長は18。環境変数 RE4_MAXEDGE で上書き：大きな値で切るのをやめる。ds/nitrofs の
-        // ステージのファイルを作ったときと同じに。）
         static readonly float MaxEdge = float.Parse(Environment.GetEnvironmentVariable("RE4_MAXEDGE") ?? "24", System.Globalization.CultureInfo.InvariantCulture);
 
-        // 辺の中点で増える頂点のブロック（位置、テクスチャ座標、色は中間）。
         class VertexGrowth
         {
             readonly VertexBlock v;
@@ -923,7 +839,6 @@ namespace Re4Zeebo
             }
         }
 
-        // チャンクの中心と半径（ワールド空間）。
         static float[] ChunkBounds(DrawRecord d)
         {
             var lo = new[] { float.MaxValue, float.MaxValue, float.MaxValue };
@@ -944,7 +859,7 @@ namespace Re4Zeebo
         {
             int nodes = 0;
             foreach (var a in anims) nodes = Math.Max(nodes, a.Nodes.Length);
-            nodes = Math.Min(nodes, MaxDsNodes);   // （モデルと同じ：TrimSkeleton を参照）
+            nodes = Math.Min(nodes, MaxDsNodes);
             using (var bw = new BinaryWriter(File.Create(path)))
             {
                 bw.Write(Encoding.ASCII.GetBytes("RDA1"));
@@ -993,29 +908,8 @@ namespace Re4Zeebo
 
         static int Clamp16(float v) { return Math.Max(-32768, Math.Min(32767, (int)Math.Round(v))); }
 
-        // RDG2 の地面のファイル、高さの検索と壁の当たり判定用、1つの均一な XZ の格子で。
-        //   char magic[4] 「RDG2」。u16 cellsX, cellsZ。s32 originX, originZ, cellSize（f32）。u32 triangles。
-        //   床：|normal.y| >= 0.5 の三角形（傾きは最大60度）
-        //     u32 cellStart[cellsX * cellsZ + 1]   （三角形の番号の一覧への番号）
-        //     u16 index[cellStart[last]]、4バイトに揃える
-        //     三角形：s32 x0, z0, x1, z1, x2, z2（f32、XZ の足跡）。s32 a, b, c（f32 の平面
-        //     y = a*x + b*z + c）。それぞれ36バイト
-        //   壁：もっと急な三角形（透ける描画のものは除く）を、その一番長い XZ の辺として
-        //     u32 walls。u32 wallCellStart[cells + 1]。u16 wallIndex[...]、4バイトに揃える
-        //     壁：s32 x0, z0, x1, z1, yMin, yMax（f32）。それぞれ24バイト
-        //     壁は、その線分が WallMargin 以内に来るすべてのマスに載せる。
         const float WallMargin = 4f;
 
-        // 原作自身の当たり判定（stg_data_NN.bin のセクション1）。各グループは { u8 id, u8 walk,
-        // u8 camera, u8 shots, u8 kind, 3バイト, u32 first, u32 count }（bio4_brew.mod でたどった：
-        // 0x64fc は歩く者を walk のバイトが立ったグループと判定し、0x5728 と 0x71b8 は camera のバイト、
-        // 0x5c80 は shots のバイト、それぞれ全部のグループを回る）。レオンを止めるのは walk のグループ
-        // だけ：ほかはカメラと弾用の家や屋根の細部で、どのバイトも立っていないグループ（kind 1 と 2：
-        // 手すり、扉の面、きっかけの面）は何も止めない。
-        // 12面のデータとそのモデル：(-468, -988) 動かし、それから（Stage12Fix）さらに数単位、z の先ほど
-        // x を少し小さく（モデルの3つの戸口から読み取った：扉と壁がそこから4-7単位ずれていた）。
-        // 当たり判定自体は、その半分でモデルに一番よく合う（3つの戸口の近くのモデルの壁で測った：原作の
-        // 当たり判定の輪郭はモデルより単純）。
         public static void Stage12Fix(ref float x, ref float z, float part = 1) { x += (6.64f + 0.00374f * z) * part; z += 4.9f * part; }
 
         public static List<float[]> StageDataWalls(byte[] b, int sec, List<float[]> floors, float offX = 0, float offZ = 0, List<float[]> rayFloors = null, List<float[]> rayWalls = null, bool stage12 = false)
@@ -1026,7 +920,6 @@ namespace Re4Zeebo
             for (int g = 0; g < groups; g++)
             {
               int gp = sec + 12 + g * 16;
-              // 光線：ビット0 はカメラのグループ、ビット1 は弾のもの。歩く者：walk のグループ。
               int mask = (b[gp + 2] != 0 ? 1 : 0) | (b[gp + 3] != 0 ? 2 : 0);
               bool walk = b[gp + 1] != 0;
               if (!walk && mask == 0) continue;
@@ -1044,7 +937,7 @@ namespace Re4Zeebo
                 if (len < 1e-4f) continue;
                 if (Math.Abs(ny) / len >= 0.5f)
                 {
-                    if (walk && ny > 0) floors.Add(v);   // 歩ける：床、段、階段、地面（上のまぐさではない）
+                    if (walk && ny > 0) floors.Add(v);
                     if (rayFloors != null && mask != 0) rayFloors.Add(new[] { v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], mask });
                     continue;
                 }
@@ -1067,11 +960,10 @@ namespace Re4Zeebo
 
         static string WriteGround(string path, string name, MeshStats s, float cell, Func<DrawRecord, bool> cutout, List<float[]> extraWalls = null, List<float[]> extraFloors = null, List<float[]> rayFloors = null, List<float[]> rayWalls = null)
         {
-            var tris = new List<float[]>();    // x0 y0 z0 x1 y1 z1 x2 y2 z2
-            var walls = new List<float[]>();   // x0 z0 x1 z1 yMin yMax
+            var tris = new List<float[]>();
+            var walls = new List<float[]>();
             if (extraWalls != null) walls.AddRange(extraWalls);
             float minX = float.MaxValue, minZ = float.MaxValue, maxX = float.MinValue, maxZ = float.MinValue;
-            // 原作の当たり判定があれば、絵は何も足さない（原作が歩くのはそれではない）。
             foreach (var d in s.Draws)
             {
                 if (extraWalls != null) break;
@@ -1090,7 +982,6 @@ namespace Re4Zeebo
                     if (Math.Abs(ny) / len < 0.5f)
                     {
                         if (seeThrough) return;
-                        // 上から見た一番長い辺。縦の三角形はそこに射影される。
                         int best = 0; float bl = -1;
                         for (int k = 0; k < 3; k++)
                         {
@@ -1157,7 +1048,6 @@ namespace Re4Zeebo
                 foreach (var t in ts)
                 {
                     for (int k = 0; k < 3; k++) { bw.Write(F32(t[k * 3])); bw.Write(F32(t[k * 3 + 2])); }
-                    // 3点を通る平面、y について解く。
                     float ux = t[3] - t[0], uy = t[4] - t[1], uz = t[5] - t[2], wx = t[6] - t[0], wy = t[7] - t[1], wz = t[8] - t[2];
                     float nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
                     float a = -nx / ny, b = -nz / ny, c0 = t[1] - a * t[0] - b * t[2];
@@ -1173,8 +1063,6 @@ namespace Re4Zeebo
                 bw.Write((ushort)cx); bw.Write((ushort)cz);
                 bw.Write(F32(minX)); bw.Write(F32(minZ)); bw.Write(F32(cell));
                 writeBody(bw, tris, cells, walls, wallCells);
-                // それから光線が当たるもの（同じ格子にもう一度同じもの、それから床ごとと壁ごとに1バイト：
-                // ビット0 はカメラの、ビット1 は弾の）、原作のデータにあれば。
                 if (rayFloors != null)
                 {
                     var rc = new List<int>[cx * cz];
@@ -1201,7 +1089,6 @@ namespace Re4Zeebo
                                  name, tris.Count, maxPerCell, walls.Count, maxWallsPerCell, cx, cz, cell);
         }
 
-        // (x, z) の下で一番低い三角形の面、屋根や木の上は飛ばす。無ければバウンディングボックスの底。
         static float Ground(MeshStats s, float x, float z, float fallback)
         {
             float best = float.MaxValue;

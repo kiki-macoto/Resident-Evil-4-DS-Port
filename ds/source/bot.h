@@ -1,25 +1,12 @@
-// テスト用ビルド（-DTEST_BOT）：ボタンを押すだけのプレイヤー。毎フレーム、bot_frame.inc
-// （main() のループの中、ゲームの状態があるところ）が、プレイヤーが画面を見るように状態を見て、
-// 押すキーを決める。それ以外は何も変えない：敵を倒したり、レオンを動かしたりはしない。
-//   - 移動：レオンの足元から床の上を幅優先で探索する（3単位のマス、レオン自身の当たり判定：
-//     STEP_UP までの段差、段からの飛び降り、はしごの上り下り、5面のジャンプ）。
-//     それから経路の方を向いて歩く（長ければ走る）。
-//   - 目標（種類ごとに近い順）：床のアイテム、待っているアシュリー、今起こせるミッションのイベント
-//     （地点や死体での A、壊した木箱）、木箱、それから残っている敵。
-//   - 戦闘：70以内に見えている一番近い敵の方を向き、狙って（R、上下）、レーザーが当たったら
-//     撃つ（A）。ひるんだ敵は蹴る。つかまれたら A/B を連打。ひざをついた巨人は斬る。
-//     弾が無ければナイフ（L + A）。
-// main.c の main() の直前でインクルードされる。
 #ifndef BOT_H
 #define BOT_H
 
 #ifndef DOOR_W
-#define DOOR_W inttof32(13)   // （objects.c と同じ：扉の板の、ちょうつがいから端まで）
+#define DOOR_W inttof32(13)
 #endif
-// ガラドールは目が見えない：倒す必要のあるイベントが無ければ（8、9面）、ボットは回り込む。
 #define BOT_LEAVE_GAL 1
 #define BN_CELL   inttof32(2)
-#define BN_R      180                   // レオンから各方向のマス数（360単位）
+#define BN_R      180
 #define BN_W      (BN_R * 2 + 1)
 #define BN_LV     16
 #define BN_LEVEL(y) ((((y) >> 12) + 48) / 12)
@@ -33,7 +20,6 @@ static int bn_heap_n;
 static u8 bn_seen[(BN_W * BN_W * BN_LV + 7) / 8];
 static s32 bn_path[BN_PATH];
 static int bn_path_n, bn_truncated, bn_n_last;
-// ボットが通れなかった場所（物、狭すぎるすき間）：しばらく避ける。
 #define BN_BLOCKS 24
 static int bn_block[BN_BLOCKS][3], bn_block_t[BN_BLOCKS];
 
@@ -79,10 +65,7 @@ static int bn_pop(void)
     return top;
 }
 
-// (x, feet, z) から目標の `reach` 以内（高さの差は dyok 以内）までを計画する：3単位のマスで A*。
-// bn_path（ノードの番号、出発点から）を埋める。目標に着く経路なら1、近づけるところまでなら0
-// （bn_truncated：わかる前に探索の容量が尽きた）、何も無ければ -1 を返す。
-static const int *bn_flee;   // 設定時：目標なし。（BN_FLEE_NODES 以内で）ここから一番遠い場所
+static const int *bn_flee;
 #define BN_FLEE_NODES 2500
 static int bn_add(int n, int at, int x, int z, int f, int ci, int cj, int kind, int arg, int cost, const int goal[3])
 {
@@ -96,13 +79,11 @@ static int bn_add(int n, int at, int x, int z, int f, int ci, int cj, int kind, 
         s64 dx = x - goal[0], dz = z - goal[2];
         h = (int)sqrt64((u64)(dx * dx + dz * dz)) + abs(f - goal[1]) * 2;
     }
-    bn_push(n, g + h * 2);   // （重み付き：まっすぐ向かい、調べるマスが少ない）
+    bn_push(n, g + h * 2);
     return n + 1;
 }
-// レオンが持っていない鍵で閉じたままのミッションの扉（扉のイベントが、彼の持っていない
-// アイテムを求めている）：探索では壁として扱う。bn_plan() が埋める。
 static int bn_gate_n, bn_gate[8][4];
-static u8 bn_door_bad[OBJECTS_MAX];   // ボットが通り抜けられなかった扉（ミッションが進むまで）
+static u8 bn_door_bad[OBJECTS_MAX];
 static void bn_gates(int stage)
 {
     const StageFoes *sf = &stage_foes[stage];
@@ -117,7 +98,6 @@ static void bn_gates(int stage)
         for (int e = 0; e < sf->events && e < 64 && !gated; e++)
         {
             const StageEvent *ev = &sf->event[e];
-            // （扉で押す A は扉ではなく、そこでまだ起こせるイベントに行く）
             if (ev->ctg != EV_POINT || ev->get < GET_BUTTON || ev_bit(ev_deleted, e) || (ev_bit(ev_played, e) && !ev->again))
                 continue;
             int dp[3] = { mx, o->pos[1], mz };
@@ -136,7 +116,6 @@ static void bn_gates(int stage)
         }
     }
 }
-// (x, z) が、閉じた扉の板から3以内
 static int bn_gated(int x, int z)
 {
     for (int i = 0; i < bn_gate_n; i++)
@@ -178,11 +157,10 @@ static int bn_plan(int stage, const int from[3], const int goal[3], int reach, i
         s64 score = d2 + (s64)(dy > 0 ? dy : -dy) * (dy > 0 ? dy : -dy) * 4;
         if (bn_flee)
         {
-            // そこから離れていて、開けている（7以内に壁が無い：隅はわなになる）。
             s64 fx = s.x - bn_flee[0], fz = s.z - bn_flee[2];
             int ox = s.x, oz = s.z;
             ground_collide(g, &ox, &oz, s.feet + STEP_UP, s.feet + LEON_HEIGHT, inttof32(10));
-            objects_collide(&objs, &ox, &oz, s.feet, inttof32(8));   // （木箱やドラム缶も）
+            objects_collide(&objs, &ox, &oz, s.feet, inttof32(8));
             score = (ox != s.x || oz != s.z) ? 0 : -(fx * fx + fz * fz);
         }
         if (at == 0 || score < best_d)
@@ -195,7 +173,6 @@ static int bn_plan(int stage, const int from[3], const int goal[3], int reach, i
             bn_truncated = 1;
             break;
         }
-        // はしご（上り下り）とジャンプ。
         for (int i = 0; i < objs.count; i++)
         {
             const Obj *o = &objs.o[i];
@@ -224,7 +201,6 @@ static int bn_plan(int stage, const int from[3], const int goal[3], int reach, i
                 n = bn_add(n, at, inttof32(js->to_x), inttof32(js->to_z), f, (inttof32(js->to_x) - from[0]) / BN_CELL, (inttof32(js->to_z) - from[2]) / BN_CELL, BN_JUMP, j, inttof32(15), goal);
             }
         }
-        // 歩いて進む（マス自身の中心から。格子がずれないように）。
         for (int d = 0; d < 8; d++)
         {
             int ci = s.ci + dirs[d][0], cj = s.cj + dirs[d][1];
@@ -237,8 +213,8 @@ static int bn_plan(int stage, const int from[3], const int goal[3], int reach, i
                 continue;
             ground_collide(g, &x, &z, s.feet + STEP_UP, s.feet + LEON_HEIGHT, LEON_RADIUS);
             if (abs(x - tx) > BN_CELL / 2 || abs(z - tz) > BN_CELL / 2)
-                continue;   // （そこに壁）
-            int mx = (s.x + tx) / 2, mz = (s.z + tz) / 2, qx = mx, qz = mz;   // （途中にも）
+                continue;
+            int mx = (s.x + tx) / 2, mz = (s.z + tz) / 2, qx = mx, qz = mz;
             ground_collide(g, &qx, &qz, s.feet + STEP_UP, s.feet + LEON_HEIGHT, LEON_RADIUS);
             if (abs(qx - mx) > BN_CELL / 2 || abs(qz - mz) > BN_CELL / 2)
                 continue;
@@ -246,7 +222,7 @@ static int bn_plan(int stage, const int from[3], const int goal[3], int reach, i
             if (!ground_height(g, x, z, s.feet, STEP_UP, &floor))
                 continue;
             if (floor < s.feet - DROP_MIN && stage == ASH_STAGE_E)
-                continue;   // （10面のバルコニーの端で止まる）
+                continue;
             n = bn_add(n, at, x, z, floor, ci, cj, BN_WALK, 0, d < 4 ? BN_CELL : BN_CELL * 17 / 12, goal);
         }
     }
@@ -267,7 +243,7 @@ static int bot_yaw_to(const int from[3], const int to[3])
 {
     return (int)(atan2f((float)(to[0] - from[0]), (float)(to[2] - from[2])) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
 }
-static int bot_angle_diff(int a, int b)   // a - b、近い方向で
+static int bot_angle_diff(int a, int b)
 {
     int d = (a - b) & (DEGREES_IN_CIRCLE - 1);
     return d >= DEGREES_IN_CIRCLE / 2 ? d - DEGREES_IN_CIRCLE : d;
@@ -277,7 +253,6 @@ static int bot_dist(const int a[3], const int b[3])
     s64 dx = a[0] - b[0], dz = a[2] - b[2];
     return (int)sqrt64((u64)(dx * dx + dz * dz));
 }
-// レオンの目からその点までに、固いものが無い（弾の当たる壁と床）。
 static int bot_sees(const int eye[3], const int to[3])
 {
     int d[3] = { to[0] - eye[0], to[1] - eye[1], to[2] - eye[2] };
@@ -291,9 +266,8 @@ static int bot_sees(const int eye[3], const int to[3])
     return !ground_raycast(&stage_ground, eye, d, len - inttof32(2), hit, RAY_SHOT);
 }
 
-// 目標。
 enum { BG_NONE, BG_DROP, BG_ASHLEY, BG_EVENT, BG_CRATE, BG_HUNT, BG_GIANT };
 typedef struct { int kind, idx, pos[3], reach, dyok, press; } BotGoal;
-static u16 bot_skip_t[8][64];   // たどり着けなかった目標（種類、番号）を放っておくフレーム数
-static u8 bot_done[64];         // ボットがすでに起こした（か A を押した）イベント：もう一度はしない
+static u16 bot_skip_t[8][64];
+static u8 bot_done[64];
 #endif

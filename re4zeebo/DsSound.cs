@@ -1,9 +1,3 @@
-// DS 用の効果音：原作の IMA-ADPCM の WAV -> 8ビット PCM のサンプルの1つのバンク。
-//
-// バンク（.bin、「RSN1」）：
-//   char magic[4] 「RSN1」。u16 count, u16 0
-//   音ごとに：u16 rate（Hz）、u16 0、u32 bytes（4の倍数）。s8 samples[bytes]
-// 音は spec の順を保つ。それぞれピークで正規化するので、似た音量で鳴る。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -21,7 +15,6 @@ namespace Re4Zeebo
             22385, 24623, 27086, 29794, 32767 };
         static readonly int[] ImaIndex = { -1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8 };
 
-        // モノラルの WAV（PCM 16ビットか IMA-ADPCM）-> サンプル、レート。
         public static short[] DecodeWav(byte[] b, out int rate)
         {
             if (b.Length < 12 || Encoding.ASCII.GetString(b, 0, 4) != "RIFF" || Encoding.ASCII.GetString(b, 8, 4) != "WAVE")
@@ -48,8 +41,6 @@ namespace Re4Zeebo
                 for (int i = 0; i + 1 < dataLen; i += 2) o.Add(BitConverter.ToInt16(b, dataOff + i));
             else if (fmt == 0x11)
             {
-                // ブロック：s16 予測値、u8 ステップの番号、u8 0、それからニブル（下位が先）。予測値はブロックの
-                // 最初のサンプル。
                 for (int blk = dataOff; blk + 4 <= dataOff + dataLen; blk += align)
                 {
                     int pred = BitConverter.ToInt16(b, blk), index = Math.Min(88, (int)b[blk + 2]);
@@ -74,7 +65,6 @@ namespace Re4Zeebo
             return o.ToArray();
         }
 
-        // soundSpecs：「name=archive/folder:a,b,c」（.wav を除いた WAV の名前）-> <outDir>/<name>.bin。
         public static List<string> ExportSounds(string input, string outDir, string[] soundSpecs, Action<string> log)
         {
             Directory.CreateDirectory(outDir);
@@ -107,7 +97,7 @@ namespace Re4Zeebo
                         var s = DecodeWav(wav, out rate);
                         int peak = 1;
                         foreach (var v in s) peak = Math.Max(peak, Math.Abs((int)v));
-                        double gain = 127.0 * 0.95 / peak;   // 8ビットへ、ピークを95%に
+                        double gain = 127.0 * 0.95 / peak;
                         int bytes = (s.Length + 3) & ~3;
                         bw.Write((ushort)rate); bw.Write((ushort)0); bw.Write((uint)bytes);
                         for (int i = 0; i < bytes; i++)

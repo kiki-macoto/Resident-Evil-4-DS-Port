@@ -1,20 +1,3 @@
-// RE4 Zeebo Edition の MCM のモデル：頂点 / 番号 / スキンのブロックの解析、OBJ の書き出し、プレビューの描画。
-//
-// MCM_ のチャンクはマテリアルの表で始まる：+0x0C に u16 の数、それから [u32 大きさ (0xCA)] の
-// レコード、+8 に描画のキー（u32）、+0x34 にテクスチャの ID（u16）。
-// その後にデータのブロックが続き、それぞれ「00000000 <u32 ノードの ID> FFFFFFFF 00000000 00」の
-// タグが付き、中身で見分ける：
-//   頂点のブロック：4バイトのスロット [u16 数][u8][u8] の60バイトの記述子
-//             スロット0 位置（3 x 16.16）、スロット3 色（RGBA8）、スロット4 uv、スロット5 uv2
-//             （2 x int16。値 = 生の値 * scale / 65536 + offset、scale は +28、uv の s/t の
-//             offset は +32/+36）。データはスロットの順で並ぶ。
-//   スキンのブロック：u16 位置の数、u16 ボーンの数 + u8 ボーンの ID、それから位置ごとに
-//             [u8 影響数][u8 頂点数][u32 重み x n][u16 ボーン x n]。影響数0は「前の位置と同じ」
-//             （2バイトのレコード）。そういうメッシュは各位置を1回だけ持ち、「頂点数」はそれを使う
-//             連続した頂点（UV の継ぎ目で分かれる）の数を言う。剛体のメッシュ（武器）は同じブロックを
-//             ボーン1つで使う。
-// 描画のレコード（番号のブロックの中）：u32 prim（5 = ストリップ、4 = 一覧）、u16 1、u16 n、
-// u16 マテリアルのキー、u16 0、u16 n、u16 indices[n]。
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -27,25 +10,25 @@ namespace Re4Zeebo
     {
         public int Offset, PrimType, IndexCount, TriCount, MaxIndex, Material;
         public ushort[] Indices;
-        public VertexBlock Vertices;   // この描画が指す頂点のブロック（見つからなければ null）
-        public float Lift;             // エクスポーター：これだけ持ち上げる（床の上の敷物かデカール）
+        public VertexBlock Vertices;
+        public float Lift;
     }
 
     public class VertexBlock
     {
         public int Offset, Node, PositionCount, VertexCount;
-        public float[] Pos;            // 頂点ごと、xyz
-        public float[] Uv;             // 頂点ごと、st（無ければ null）
-        public byte[] Color;           // 頂点ごと、rgba（無ければ null）
+        public float[] Pos;
+        public float[] Uv;
+        public byte[] Color;
         public bool Skinned;
-        public float[] BindPos;        // スキン付きだけ：位置ごと、xyz（バインドポーズ）
-        public int[] PosIndex;         // スキン付きだけ：頂点ごと、BindPos の番号
+        public float[] BindPos;
+        public int[] PosIndex;
     }
 
     public class Material
     {
         public int Key, TextureId;
-        public int Cull;   // バイト 0x24：2 = 両面から描く（中からも外からも見る壁）
+        public int Cull;
     }
 
     public class MeshStats
@@ -66,7 +49,7 @@ namespace Re4Zeebo
             if (o < 6 || o + BlockTag.Length > b.Length) return false;
             for (int k = 0; k < BlockTag.Length; k++)
             {
-                if (k >= 4 && k < 8) continue;   // ノードの ID
+                if (k >= 4 && k < 8) continue;
                 if (b[o + k] != BlockTag[k]) return false;
             }
             return b[o + 6] == 0 && b[o + 7] == 0;
@@ -81,7 +64,7 @@ namespace Re4Zeebo
             ReadMaterials(b, start, end, st);
 
             var skins = new List<int>();
-            var tags = new List<int[]>();   // 全ブロックの { オフセット, ノードの ID }
+            var tags = new List<int[]>();
             for (int o = start + 6; o + 24 <= end; o++)
             {
                 if (!TagAt(b, o)) continue;
@@ -91,7 +74,6 @@ namespace Re4Zeebo
                 if (v != null) { v.Offset = o - start; v.Node = node; st.VertexBlocks.Add(v); }
                 else skins.Add(o);
             }
-            // スキン付きのメッシュ：スキンのブロックの位置ごとの頂点数で、位置を頂点に広げる。
             foreach (var v in st.VertexBlocks)
             {
                 if (v.PositionCount == v.VertexCount) continue;
@@ -102,8 +84,6 @@ namespace Re4Zeebo
             ScanDraws(b, start, end, st);
             foreach (var d in st.Draws)
             {
-                // 描画の番号のブロックは、自分より小さいノードの ID のうち一番大きい頂点のブロックを使う（頂点6 ->
-                // 番号7と9。頂点11 -> 番号12）。代わり：その前の最後の頂点のブロック。
                 int drawNode = -1;
                 foreach (var t in tags) if (t[0] < start + d.Offset) drawNode = t[1];
                 VertexBlock byNode = null, byOrder = null;
@@ -179,7 +159,7 @@ namespace Re4Zeebo
             for (int i = 0; i < v.PositionCount; i++)
             {
                 if (p + 2 > end) return false;
-                int inf = b[p], dup = b[p + 1];   // inf 0：前の位置と同じ影響
+                int inf = b[p], dup = b[p + 1];
                 if ((inf == 0 && i == 0) || vi + dup > v.VertexCount) return false;
                 for (int k = 0; k < dup; k++) map[vi++] = i;
                 p += 2 + 6 * inf;
@@ -195,8 +175,6 @@ namespace Re4Zeebo
             return true;
         }
 
-        // レコードは揃っていないので、全部のオフセットを試す：当たりには n が2回、その間に0、まともな番号が
-        // 要る。三角形は番号から数える（ストリップの縮退したつなぎ目は除く）。
         static void ScanDraws(byte[] b, int start, int end, MeshStats st)
         {
             for (int o = start; o + 14 <= end; o++)
@@ -222,7 +200,6 @@ namespace Re4Zeebo
             }
         }
 
-        // ストリップは巻き方が交互。縮退したつなぎ目は飛ばす。出力は GL の反時計回り。
         public static void ForEachTriangle(int prim, ushort[] idx, Action<int, int, int> f)
         {
             if (prim == 4)
@@ -243,8 +220,6 @@ namespace Re4Zeebo
     {
         static string F(float v) { return v.ToString("0.######", CultureInfo.InvariantCulture); }
 
-        // texturePath(materialKey) は OBJ のフォルダーからの相対の PNG のパス（または null）と、テクスチャに
-        // アルファがあるかを返す。
         public static void Write(string objPath, MeshStats m, Func<int, Tuple<string, bool>> texturePath)
         {
             string mtlName = Path.GetFileNameWithoutExtension(objPath) + ".mtl";
@@ -268,7 +243,6 @@ namespace Re4Zeebo
                 }
                 for (int i = 0; i < v.VertexCount; i++)
                 {
-                    // GL の t は画像の上から下へ、OBJ の v は下から上へ。
                     float s = v.Uv != null ? v.Uv[i * 2] : 0, t = v.Uv != null ? v.Uv[i * 2 + 1] : 0;
                     obj.Append("vt ").Append(F(s)).Append(' ').Append(F(-t)).AppendLine();
                 }
@@ -304,8 +278,6 @@ namespace Re4Zeebo
         static void ForEachFace(DrawRecord d, Action<int, int, int> f) { Mcm.ForEachTriangle(d.PrimType, d.Indices, f); }
     }
 
-    // ソフトウェアのプレビュー：正射影、テクスチャ付き、Z バッファ。正面から（+Z がカメラの方）、または
-    // ステージのマップのような平らなモデルなら上から（+Y がカメラの方）。
     public static class Preview
     {
         public class Tex { public int W, H; public byte[] Rgba; }
@@ -322,7 +294,6 @@ namespace Re4Zeebo
             }
             if (lo[0] > hi[0]) return;
             bool top = hi[1] - lo[1] < 0.25f * Math.Max(hi[0] - lo[0], hi[2] - lo[2]);
-            // 画面の軸：x -> 右。上 = y（正面）か -z（上）。深度 = z（正面）か y（上）。
             int ay = top ? 2 : 1, az = top ? 1 : 2;
             float sgn = top ? -1 : 1;
             float minX = lo[0], maxX = hi[0];
@@ -377,7 +348,6 @@ namespace Re4Zeebo
                             if (al < 128) continue;
                             if (v.Color != null)
                             {
-                                // GL_MODULATE：テクスチャ * 頂点の色。
                                 r *= (w0 * v.Color[a * 4] + w1 * v.Color[b2 * 4] + w2 * v.Color[c * 4]) / 255f;
                                 g *= (w0 * v.Color[a * 4 + 1] + w1 * v.Color[b2 * 4 + 1] + w2 * v.Color[c * 4 + 1]) / 255f;
                                 bl *= (w0 * v.Color[a * 4 + 2] + w1 * v.Color[b2 * 4 + 2] + w2 * v.Color[c * 4 + 2]) / 255f;

@@ -4,10 +4,6 @@
 
 #include "verdugo.h"
 
-// ver_anim.bin のクリップ（ch_ver.mcas #0,1,2,3,4,6,9,10,12,16,17,18,20,22,24）、ポーズで
-// 見分けた：0 立つ、1 歩く、2 は11フレームのしゃがんだループ（走り）、6 は尾を頭の上に振り上げて
-// 前を打つ、7 は70単位跳び上がる（天井へ）、8 は64単位から降りてくる、13 は短いひるみ、14 は
-// ゆっくり床に沈む（死）。テスト用ビルド：-DTEST_VER_VIEW でそれぞれを順に出す（番号は FPS の欄）。
 #ifndef VER_IDLE
 #define VER_IDLE    0
 #endif
@@ -34,26 +30,24 @@
 #endif
 
 #define ANIM_STEP     (inttof32(20) / 60)
-#define WALK_SPEED    (inttof32(200) / 768)  // 原作の 20Hz の1ティックあたり200、1/256 単位（ch_param_7。docs/NOTES.md）
-#define RUN_SPEED     floattof32(0.36)      // レオンの走り（0.60）より遅い：タンクまで誘い出せる
-#define RUN_FROM      inttof32(30)          // レオンがこれより遠いと走る
-#define TURN          (800 / 6)             // 原作の RotSpd、20Hz の1ティックあたり800（1回転 65536。ch_param_7）
+#define WALK_SPEED    (inttof32(200) / 768)
+#define RUN_SPEED     floattof32(0.36)
+#define RUN_FROM      inttof32(30)
+#define TURN          (800 / 6)
 #define RADIUS        floattof32(3)
 #define HEIGHT        inttof32(24)
-#define TAIL_FROM     inttof32(13)          // レオンが前方のこの近さにいると打つ
-#define REACH         inttof32(16)          // 尾はここまで届く
-#define TAIL_DAMAGE   54                    // 原作のレオンの1200のうち650（ch_param_7 のスクリプト12-40。docs/NOTES.md）
-// ch_param_7.bin（種類0、体のレコード0）から：体力20000、弾はその火力（ハンドガン100）の100%を減らし、
-// 同じだけひるみの合計に足す。1200でひるむ（docs/NOTES.md）。
+#define TAIL_FROM     inttof32(13)
+#define REACH         inttof32(16)
+#define TAIL_DAMAGE   54
 #define HP            20000
 #define FLINCH_MAX    1200
-#define FROZEN_TIMES  20                    // 凍っている間の当たりはこの回数分に数える（移植版独自）
+#define FROZEN_TIMES  20
 #define FROZEN_FRAMES (60 * 5)
 #ifndef LEAP_EVERY
-#define LEAP_EVERY    (60 * 14)             // これだけ忍び寄ったら、跳び上がって見えなくなる
+#define LEAP_EVERY    (60 * 14)
 #endif
 #define GONE_FRAMES   (60 * 2)
-#define DROP_BEHIND   inttof32(14)          // レオンの横のこの距離に降りてくる
+#define DROP_BEHIND   inttof32(14)
 #define LEON_ROOM     floattof32(3.5)
 #define STEP_UP       inttof32(4)
 
@@ -186,7 +180,6 @@ void verdugo_update(Verdugo *v, const Ground *gr, const int leon_pos[3], int leo
         break;
     }
     case VER_TAIL:
-        // 尾はクリップの半分を少し過ぎたところで振り下ろされる。
         if (!v->struck && v->frame >= len * 3 / 5)
         {
             v->struck = 1;
@@ -214,7 +207,6 @@ void verdugo_update(Verdugo *v, const Ground *gr, const int leon_pos[3], int leo
     case VER_GONE:
         if (v->timer >= GONE_FRAMES)
         {
-            // レオンの横、彼がいた所の片側（でなければ反対側）に、レオンの後ろのカメラから見える所に降りる。
             int ld = dist > 0 ? dist : 1;
             for (int side = 1; side >= -1; side -= 2)
             {
@@ -231,7 +223,6 @@ void verdugo_update(Verdugo *v, const Ground *gr, const int leon_pos[3], int leo
             }
             {
                 int ex = leon_pos[0] - v->pos[0], ez = leon_pos[2] - v->pos[2];
-                // レオンの方を向く：(sin, cos) が (ex, ez) の方を指す角度。
                 int best = 0;
                 s64 best_dot = -((s64)1 << 62);
                 for (int a = 0; a < DEGREES_IN_CIRCLE; a += DEGREES_IN_CIRCLE / 64)
@@ -265,7 +256,6 @@ void verdugo_update(Verdugo *v, const Ground *gr, const int leon_pos[3], int leo
             v->frame = len - 1;
         break;
     }
-    // レオンにめり込まない。
     if (v->state != VER_DEAD && v->state != VER_GONE && dist > 0 && dist < RADIUS + LEON_ROOM)
     {
         v->pos[0] = leon_pos[0] - mulf32(divf32(dx, dist), RADIUS + LEON_ROOM);
@@ -285,7 +275,7 @@ int verdugo_freeze(Verdugo *v, const int pos[3], int range)
     {
         int clip = v->clip, frame = v->frame;
         set_state(v, VER_FROZEN, clip);
-        v->frame = frame;   // 立っていた所で固まる
+        v->frame = frame;
     }
     else
         v->timer = 0;
@@ -308,7 +298,7 @@ int verdugo_raycast(const Verdugo *v, const int p[3], const int d[3], int *t_bes
     s64 root = (s64)sqrt64(disc);
     s64 t = ((-b - root) << 12) / aa;
     if (t <= 0 && ((-b + root) << 12) / aa > 0)
-        t = 1;   // 至近距離
+        t = 1;
     if (t <= 0 || t >= *t_best)
         return 0;
     s64 y = p[1] + ((d[1] * t) >> 12) - v->feet;
@@ -357,7 +347,7 @@ void verdugo_draw(Verdugo *v, u32 poly_fmt)
     if (v->state == VER_GONE || !view_visible(v->pos, RADIUS * 6))
         return;
     int clip = v->clip, frame = v->frame;
-#ifdef TEST_VER_VIEW   // テスト用ビルド：クリップを順に、3秒ずつ
+#ifdef TEST_VER_VIEW
     static u32 t;
     t++;
     clip = (t / 180) % v->anims.count;
@@ -374,7 +364,6 @@ void verdugo_draw_fx(Verdugo *v, const Sheet *fx)
 {
     if (v->state != VER_FROZEN)
         return;
-    // 霜：彼の上に薄い青のもや、氷がとけるにつれて薄くなる。
     int alpha = 20 - v->timer * 14 / FROZEN_FRAMES;
     for (int i = 0; i < 2; i++)
     {

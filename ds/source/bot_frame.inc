@@ -1,5 +1,3 @@
-// テスト用ビルド（-DTEST_BOT）：ボットの1フレーム分（bot.h 参照）。main() のループの中で
-// ゲームの状態を読み、`held`（押すキー）だけを設定する。
 {
     static BotGoal bg;
     static int b_frames, b_replan, b_k, b_path_ok, b_stuck, b_stuck_n, b_last[3], b_deaths, b_at_t, b_press_t;
@@ -12,7 +10,7 @@
         if (bn_block_t[b] > 0)
             bn_block_t[b]--;
     if (mode == MODE_PLAY && b_mode_prev != MODE_PLAY)
-        b_noA = 45;   // （メッセージを閉じたAで次のを開かないように）
+        b_noA = 45;
     b_mode_prev = mode;
     for (int k = 0; k < 8; k++)
         for (int i = 0; i < 64; i++)
@@ -29,7 +27,7 @@
             b_deaths++;
         b_dead_seen = 1;
         if (b_frames % 40 < 2)
-            held = KEY_A;   // （コンティニュー：もう一度ミッション）
+            held = KEY_A;
     }
     else if (mode == MODE_PLAY && ctrl == CTRL_LEON && clear_t < 0)
     {
@@ -37,8 +35,6 @@
         const StageFoes *sf = &stage_foes[cur_stage];
         int at[3] = { leon_pos[0], leon_feet, leon_pos[2] };
         int eye[3] = { leon_pos[0], leon_feet + inttof32(13), leon_pos[2] };
-        // ミッションが進んだ（イベントが起きた、グループが入ってきた、アイテムを得た）：
-        // ボットが前に起こそうとしたものが、今は別のことをするかもしれない。
         u32 hash = mis_flags * 31u + foe_groups * 7u + ganados.kills;
         for (int i = 0; i < 8; i++)
             hash = hash * 131u + ev_played[i] + items_held[i] * 3u;
@@ -51,7 +47,6 @@
                     bot_done[i] = 1;
             b_hash_prev = hash;
         }
-        // --- 見えている一番近い敵。
         int gal_behind = 0, gal_alive = 0;
         for (int i = 0; i < gal_count; i++)
             gal_alive |= gals[i].on && gals[i].state != GAL_DEAD;
@@ -84,12 +79,12 @@
         {
             const Garrador *ga = &gals[i];
             if (!ga->on || ga->state == GAL_DEAD || BOT_LEAVE_GAL)
-                continue;   // （目が見えない：ミッションに必要なければ、戦わずに回り込む）
+                continue;
             int p[3] = { ga->pos[0], ga->feet + inttof32(10), ga->pos[2] };
             int d = bot_dist(at, p);
             if (d >= t_dist || !bot_sees(eye, p))
                 continue;
-            t_kind = 3; t_idx = i; t_dist = d; t_chest = ga->feet + inttof32(14);   // （背中の上の方）
+            t_kind = 3; t_idx = i; t_dist = d; t_chest = ga->feet + inttof32(14);
             gal_behind = (((s64)sinLerp(ga->yaw) * (leon_pos[0] - ga->pos[0]) + (s64)cosLerp(ga->yaw) * (leon_pos[2] - ga->pos[2])) >> 12) < -(d / 3);
             for (int k = 0; k < 3; k++) t_pos[k] = p[k];
         }
@@ -105,8 +100,6 @@
         }
         Giant *gk = giant_at_hand(leon_pos);
         int kickable = enemies_kickable(&ganados, leon_pos, leon_yaw);
-        // 大きな敵が近すぎる（エルヒガンテ、チェーンソー男、ガラドール、ベルデューゴ）：
-        // 行ける場所のうちそこから一番遠いところまで走って離れ、振り返ってまた撃つ。
         static int b_flee_t, b_flee_to[3];
         int thr[3] = { 0, 0, 0 }, threat = 0;
         for (int i = 0; i < giant_count; i++)
@@ -121,7 +114,6 @@
             { threat = 1; for (int k = 0; k < 3; k++) thr[k] = gals[i].pos[k]; }
         if (ver.on && ver.state != VER_DEAD && bot_dist(at, ver.pos) < inttof32(24))
         { threat = 1; for (int k = 0; k < 3; k++) thr[k] = ver.pos[k]; }
-        // （十分離れるまで走り続ける：それから振り返って撃つ）
         static int b_flee_far, b_flee_from[3];
         if (threat)
         {
@@ -142,7 +134,6 @@
             bn_flee = NULL;
             if (b_flee_far && bn_n_last > 50)
             {
-                // 巨人：開けた場所を回る（その中心の、巨人と反対側へ）。
                 s64 cx = 0, cz = 0;
                 for (int q = 0; q < bn_n_last; q++) { cx += bn_node[q].x; cz += bn_node[q].z; }
                 int c[3] = { (int)(cx / bn_n_last), leon_feet, (int)(cz / bn_n_last) };
@@ -164,12 +155,12 @@
             }
         }
         if (react == REACT_HELD)
-            held = (b_frames & 1) ? KEY_A : KEY_B;   // 連打
+            held = (b_frames & 1) ? KEY_A : KEY_B;
         else if (react != REACT_NONE)
-            held = 0;   // （登っている、落ちている、蹴っている…）
+            held = 0;
         else if (gk)
         {
-            held = (b_frames % 8 < 2) ? KEY_A : 0;   // ひざをついた巨人を斬る
+            held = (b_frames % 8 < 2) ? KEY_A : 0;
             snprintf(b_msg, sizeof(b_msg), "cut");
         }
         else if (kickable >= 0 && !aim_w)
@@ -181,7 +172,7 @@
         {
             b_flee_t--;
             if (gun_state == GUN_READY && ammo < MAG_SIZE / 2 && spare > 0 && b_frames % 30 == 0)
-                held |= KEY_Y;   // （走りながらリロード）
+                held |= KEY_Y;
             int want = bot_yaw_to(at, b_flee_to), diff = bot_angle_diff(want, leon_yaw);
             held = (held & KEY_Y) | (diff > degreesToAngle(12) ? KEY_LEFT : diff < -degreesToAngle(12) ? KEY_RIGHT : 0)
                    | (abs(diff) < degreesToAngle(60) ? KEY_UP | (gal_alive ? 0 : KEY_B) : 0);
@@ -196,7 +187,6 @@
             snprintf(b_msg, sizeof(b_msg), "fight %d:%d d%d", t_kind, t_idx, f32toint(t_dist));
             if (no_rounds)
             {
-                // ナイフ：近づいてから L + A。
                 if (t_dist > inttof32(7))
                     held = (diff > degreesToAngle(10) ? KEY_LEFT : diff < -degreesToAngle(10) ? KEY_RIGHT : 0) | (abs(diff) < degreesToAngle(40) ? KEY_UP : 0);
                 else
@@ -204,8 +194,6 @@
             }
             else if (t_kind == 3 && !gal_behind && t_dist > inttof32(12))
             {
-                // ガラドール：弾が効くのは背中（寄生体）だけ。背後18まで回り込み
-                // （静かに：走らず、撃たずに）、それから撃つ。
                 const Garrador *ga = &gals[t_idx];
                 int bp[3] = { ga->pos[0] - mulf32(sinLerp(ga->yaw), inttof32(18)), ga->feet, ga->pos[2] - mulf32(cosLerp(ga->yaw), inttof32(18)) };
                 int w2 = bot_yaw_to(at, bp), d2 = bot_angle_diff(w2, leon_yaw);
@@ -215,13 +203,12 @@
             else if (gun_state == GUN_HOLSTERED)
                 held = ((b_frames % 20 < 2) ? KEY_X : 0) | (diff > 0 ? KEY_LEFT : KEY_RIGHT);
             else if (abs(diff) > degreesToAngle(10))
-                held = diff > 0 ? KEY_LEFT : KEY_RIGHT;   // 先に向きを変える（構えたままの旋回は遅い）
+                held = diff > 0 ? KEY_LEFT : KEY_RIGHT;
             else
             {
                 held = KEY_R;
                 if (diff > degreesToAngle(1)) held |= KEY_LEFT;
                 else if (diff < -degreesToAngle(1)) held |= KEY_RIGHT;
-                // 上下の傾き：構えのポーズは、いっぱいに傾けて上下に約50度。
                 float pitch = atan2f((float)(t_chest - (leon_feet + inttof32(13))), (float)t_dist) * 57.3f;
                 int want_tilt = (int)(pitch / 50.0f * 4096.0f);
                 if (want_tilt > AIM_TILT_RANGE) want_tilt = AIM_TILT_RANGE;
@@ -237,7 +224,6 @@
                     held |= KEY_A;
                     b_aim_t = 0;
                 }
-                // 3秒構えても撃てない（柱が邪魔）：5秒間あきらめる（そちらへ歩く）。
                 if (t_kind == 1 && aim_w >= inttof32(1) && ++b_aim_t > 180)
                 {
                     bot_skip_t[7][t_idx] = 300;
@@ -247,7 +233,6 @@
         }
         else
         {
-            // --- 歩いて行く目標。
             int kneel = -1;
             for (int i = 0; i < giant_count; i++)
                 if (giants[i].state == GIANT_KNEEL)
@@ -280,7 +265,6 @@
                         continue;
                     int r = ev->reach * 16 * 4 / 5, press = ev->get != GET_TOUCH;
                     if (r < inttof32(3)) r = inttof32(3);
-                    // 何もしないもの（コマンドが無く、待っている別のイベントも無い）：最後。
                     int matters = ev->count > 0;
                     for (int j = 0; j < sf->events && !matters; j++)
                         matters = sf->event[j].cond == COND_EVENT && sf->event[j].value == i;
@@ -289,7 +273,7 @@
                     {
                         int py = sf->point[ev->trg][1] - 12;
                         if (cur_stage == ASH_STAGE_E && ev->trg == 4)
-                            py = sf->point[ev->trg][1] + 68;   // （扉の上のバルコニーから：その床は80）
+                            py = sf->point[ev->trg][1] + 68;
                         BOT_CAND(BG_EVENT, i, inttof32(sf->point[ev->trg][0]), inttof32(py), inttof32(sf->point[ev->trg][2]), r, inttof32(10), press, pen);
                     }
                     else if (ev->ctg == EV_RECORD && foe_record_down(ev->trg))
@@ -307,13 +291,12 @@
                             BOT_CAND(BG_EVENT, i, o->pos[0], o->pos[1], o->pos[2], r, inttof32(10), press, pen);
                     }
                 }
-                for (int i = 0; i < objs.count; i++)   // （イベントの無い木箱：通り道にあるときだけ）
+                for (int i = 0; i < objs.count; i++)
                     if (objs.o[i].kind == OBJ_CRATE && objs.o[i].alive && bot_dist(at, objs.o[i].pos) < inttof32(40))
                         BOT_CAND(BG_CRATE, i, objs.o[i].pos[0], objs.o[i].pos[1], objs.o[i].pos[2], inttof32(8), inttof32(8), 1, 60);
                 for (int i = 0; i < ganados.count; i++)
                     if (ganados.e[i].active && ganados.e[i].state < ENEMY_DYING && !ganados.e[i].thrower)
                     {
-                        // イベントが待っているもの（その体に鍵がある、倒すと次が入ってくる）：最初。
                         int named = 0, f = slot_foe[i];
                         for (int e = 0; f >= 0 && e < sf->events && !named; e++)
                             named = (sf->event[e].ctg == EV_RECORD && sf->event[e].trg == foe_list[f]->rec)
@@ -336,8 +319,7 @@
                     b_stuck_n = 0;
                 }
             }
-            // 手の届くアイテム（「A: Pick up」）：拾う。
-            if (bg.kind != BG_NONE && ++b_goal_age > 40 * 60)   // （1つの目標に40秒：いったんあきらめる）
+            if (bg.kind != BG_NONE && ++b_goal_age > 40 * 60)
             {
                 bot_skip_t[bg.kind][bg.idx & 63] = 3600;
                 bg.kind = BG_NONE;
@@ -345,7 +327,6 @@
             }
             if (b_unstick > 0)
             {
-                // 隅から抜け出す：向きを変えながら下がり、計画し直す。
                 b_unstick--;
                 held = KEY_DOWN | ((b_frames / 25) & 1 ? KEY_LEFT : 0);
                 if (b_unstick == 0)
@@ -371,15 +352,13 @@
                     b_replan = 45;
                     if (b_path_ok == 0 && !bn_truncated)
                     {
-                        // 探索で行ける所は全部調べた：ここからは無理。
                         bot_skip_t[bg.kind][bg.idx & 63] = 6000;
                         bg.kind = BG_NONE;
                     }
                     if (b_path_ok < 0)
-                        b_unstick = 50;   // （壁に押し付けられている：ここから計画を始められない）
+                        b_unstick = 50;
                     else if (b_path_ok <= 0 && bn_path_n <= 2)
                     {
-                        // もっと近くに行ける場所が無い：しばらくあきらめる。
                         bot_skip_t[bg.kind][bg.idx & 63] = 1800;
                         bg.kind = BG_NONE;
                     }
@@ -389,7 +368,6 @@
                 snprintf(b_msg, sizeof(b_msg), "%c%d d%d p%d/%d", "-DAECHG"[bg.kind], bg.idx, f32toint(gd), b_path_ok, bn_path_n);
                 if (bg.kind != BG_NONE && arrived)
                 {
-                    // 着いた：必要なもの（イベント、アイテム、正面の木箱）には A、それ以外は少し待つ。
                     b_at_t++;
                     if (bg.kind == BG_CRATE)
                     {
@@ -402,13 +380,12 @@
                     }
                     else if (bg.kind == BG_EVENT && sf->event[bg.idx].get == GET_WITH_ASHLEY && !ev_ashley_by(at))
                     {
-                        held = 0;   // （彼女が来るのを待つ）
+                        held = 0;
                         b_at_t = b_at_t > 60 ? 60 : b_at_t;
                         snprintf(b_msg, sizeof(b_msg), "wait ash");
                     }
                     else if (bg.kind == BG_EVENT && bg.press && b_at_t > 30 && b_at_t < 200 && gd > inttof32(1))
                     {
-                        // ここで A を押しても何も起きない：その点のすぐそばまで寄ってから、もう一度 A。
                         int want = bot_yaw_to(at, bg.pos), diff = bot_angle_diff(want, leon_yaw);
                         held = (diff > degreesToAngle(10) ? KEY_LEFT : diff < -degreesToAngle(10) ? KEY_RIGHT : 0)
                                | (abs(diff) < degreesToAngle(30) && (b_frames & 3) == 0 ? KEY_UP : 0) | ((b_frames % 20 < 2) ? KEY_A : 0);
@@ -421,7 +398,7 @@
                     }
                     if (bg.kind == BG_EVENT && !bg.press && b_at_t > 90)
                         bot_done[bg.idx] = 1;
-                    if (b_at_t > 300)   // （何も起きなかった）
+                    if (b_at_t > 300)
                     {
                         bot_skip_t[bg.kind][bg.idx & 63] = 1200;
                         if (bg.kind == BG_EVENT)
@@ -431,8 +408,6 @@
                 }
                 else if (bg.kind != BG_NONE && bn_path_n > 1)
                 {
-                    // 8秒たっても目標に近づかない（計画では行けるがゲームでは行けない一歩、
-                    // 手すりを越えて降りるなど）：その次の一歩をふさいで、回り込むように計画し直す。
                     static int b_best_gd, b_prog_t, b_noprog, b_prog_goal = -1;
                     int goal_id = bg.kind * 64 + bg.idx;
                     if (goal_id != b_prog_goal)
@@ -467,7 +442,6 @@
                             bg.kind = BG_NONE;
                         }
                     }
-                    // 経路に沿って：前方の一番近いノード、そこから少し先（はしごやジャンプは越えない）。
                     int k = b_k < bn_path_n ? b_k : bn_path_n - 1;
                     for (int j = k; j < bn_path_n && j < k + 8; j++)
                     {
@@ -482,7 +456,6 @@
                     const BnNode *next = &bn_node[bn_path[k]];
                     if (next->kind != BN_WALK)
                     {
-                        // 前のノードからのはしごかジャンプ：そちらを向いて A を押す。
                         const BnNode *from_nd = &bn_node[bn_path[k - 1 >= 0 ? k - 1 : 0]];
                         int fp[3] = { from_nd->x, from_nd->feet, from_nd->z };
                         int want;
@@ -517,28 +490,27 @@
                         int want = bot_yaw_to(at, tp), diff = bot_angle_diff(want, leon_yaw);
                         held = diff > degreesToAngle(12) ? KEY_LEFT : diff < -degreesToAngle(12) ? KEY_RIGHT : 0;
                         if (abs(diff) < degreesToAngle(50))
-                            held |= KEY_UP | (bn_path_n - k > 15 && !gal_alive ? KEY_B : 0);   // （ガラドールが聞き耳を立てている間は静かに）
+                            held |= KEY_UP | (bn_path_n - k > 15 && !gal_alive ? KEY_B : 0);
                         if (gun_state == GUN_READY && b_frames % 60 == 0)
-                            held |= KEY_X;   // （走るために銃をしまう）
+                            held |= KEY_X;
                         {
                             int dw, da = objects_action(&objs, leon_pos, leon_feet, leon_yaw, &dw);
                             if (da == ACT_OPEN_DOOR && b_frames % 20 < 2)
-                                held = (held & ~KEY_X) | KEY_A;   // （前に閉じた扉：開ける）
+                                held = (held & ~KEY_X) | KEY_A;
                         }
                     }
-                    // 引っかかった：途中で3秒間ほとんど動いていない。
                     if (b_frames % 180 == 0)
                     {
                         if (bot_dist(at, b_last) < inttof32(3))
                         {
                             b_stuck++;
-                            for (int q = 0; q < objs.count; q++)   // （すぐそこに扉：通り抜けない）
+                            for (int q = 0; q < objs.count; q++)
                                 if (objs.o[q].kind == OBJ_SWING && objs.o[q].locked && b_stuck >= 2
                                     && abs(objs.o[q].hinge[0] - leon_pos[0]) < inttof32(16) && abs(objs.o[q].hinge[1] - leon_pos[2]) < inttof32(16))
                                     bn_door_bad[q] = 1;
                             int w, act = objects_action(&objs, leon_pos, leon_feet, leon_yaw, &w);
                             if (act == ACT_OPEN_DOOR && b_stuck < 3)
-                                held = KEY_A;   // （扉：A を押し、閉じたままなら回り込む）
+                                held = KEY_A;
                             if (act != ACT_OPEN_DOOR || b_stuck >= 2)
                                 for (int b = 0; b < BN_BLOCKS; b++)
                                     if (bn_block_t[b] <= 0)
@@ -565,11 +537,10 @@
                 }
             }
         }
-        // マガジンの残りが少なく、何も見えていなければリロード（銃を出して）。
         if (t_idx < 0 && react == REACT_NONE && gun_state == GUN_READY && ammo < MAG_SIZE / 2 && spare > 0 && b_frames % 40 == 0)
             held = (held & ~KEY_R) | KEY_Y;
         else if (t_idx < 0 && react == REACT_NONE && gun_state == GUN_HOLSTERED && ammo < MAG_SIZE / 2 && spare > 0 && b_frames % 40 == 0)
-            held |= KEY_X;   // （リロードするために銃を出す）
+            held |= KEY_X;
         char line[64];
         int keys = 0, played = 0;
         for (int id = 80; id <= 86; id++)
@@ -583,8 +554,6 @@
             held &= ~KEY_A;
         }
         text_line(19, 2, 2, TEXT_WHITE, line);
-        // 2行目：自動でないイベントごとに：P 起きた、X 消えた、D ボットが済ませた、S 保留、
-        // c 条件を満たしていない、. まだ。
         char evs[64];
         int ne = 0;
         for (int i = 0; i < sf->events && i < 40 && ne < 62; i++)
@@ -601,7 +570,6 @@
         int nk = bn_path_n > 1 && b_k < bn_path_n ? bn_node[bn_path[b_k]].kind : -1;
         snprintf(wl, sizeof(wl), "%d,%d,%d n%d k%d/%d", f32toint(leon_pos[0]), f32toint(leon_feet), f32toint(leon_pos[2]), nk, b_k, bn_path_n);
         text_line(17, 2, 26, TEXT_WHITE, wl);
-        // 3行目：目標の場所。追っている敵なら、その状態、レコード、見えているか。
         char gl[64];
         int gs = -1, grec = -1, gseen = -1;
         if (bg.kind == BG_HUNT && bg.idx < ganados.count)
@@ -612,7 +580,6 @@
             grec = slot_foe[bg.idx] >= 0 ? foe_list[slot_foe[bg.idx]]->rec : -1;
             gseen = bot_sees(eye, p);
         }
-        // …と、経路の最初の高さの変わり目：そのノード、種類と場所。
         int dj = -1;
         for (int j = 1; j < bn_path_n && dj < 0; j++)
             if (abs(bn_node[bn_path[j]].feet - bn_node[bn_path[j - 1]].feet) > inttof32(6))

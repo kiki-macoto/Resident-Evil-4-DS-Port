@@ -3,54 +3,44 @@
 
 #include "objects.h"
 
-// 配置（ワールド単位）。ステージのデータから、1/256 に縮めて：
-// - 3つの門は stg_data_01.bin の当たり判定のデータの出口の四角形（村から出る道を横切る縦の
-//   四角形。その中点が扉の地点 b0..b2）。
-// - 家の扉は扉の地点 b4、+z を向いた壁の上（mis_data_s01.bin のガナードの出現地点 e7 がその
-//   16単位前にある）。
-// - はしごはアクションの地点 a6 と a7 に立ち、ステージのジオメトリでその横に見つかる通路
-//   （高さ約31.7）の端にかかる。
-// - 木箱はアクションの地点 a10 と a11（Zeebo 版が見せるとおり、家の壁に接した地面の上）。
-// Zeebo 版の1面（3つのミッション全部）には爆発する樽も青いメダルも無く、門と家の扉はステージの
-// モデルの一部：ここの門の扉と扉は道をふさぐだけで、描かない。
-static const float gates[3][5] = {   // x0, z0, x1, z1, 高さ
+static const float gates[3][5] = {
     { 19.8f, 352.8f, 36.3f, 392.1f, 26.6f },
     { 219.0f, 532.4f, 261.7f, 532.1f, 35.5f },
     { 612.7f, 15.9f, 627.3f, 56.0f, 34.9f },
 };
 static const float door_b4[5] = { 445.6f, 199.3f, 432.6f, 199.3f, 23.0f };
-static const float ladders[2][5] = {   // 根元の x, z、足場への向きの x, z、足場の高さ
+static const float ladders[2][5] = {
     { 439.5f, 60.5f, -1.0f, 0.0f, 31.7f },
     { 317.3f, 75.5f, 1.0f, 0.0f, 32.2f },
 };
 static const float crates[][2] = { { 397.9f, 322.6f }, { 457.7f, 277.6f } };
-static const float plaza[2] = { 380.0f, 280.0f };   // 門は村の方へ開く
+static const float plaza[2] = { 380.0f, 280.0f };
 
-#define LADDER_SIDE  inttof32(6)          // はしごの線からどちらへもこの距離で A で登れる
+#define LADDER_SIDE  inttof32(6)
 #define CRATE_R      floattof32(3.5)
 #define CRATE_H      inttof32(6)
 #define BARREL_R     floattof32(3.5)
 #define BARREL_H     inttof32(12)
 #define MEDAL_R      inttof32(2)
-#define MEDAL_DROP   inttof32(9)          // 円盤は吊るし点からこれだけ下にぶら下がる
-#define LEAF_R       floattof32(1.2)      // 当たり判定用の、門の扉の厚さの半分
-#define SWING_STEP   (inttof32(1) / 14)   // 蹴られた門は14フレームで開く
+#define MEDAL_DROP   inttof32(9)
+#define LEAF_R       floattof32(1.2)
+#define SWING_STEP   (inttof32(1) / 14)
 #define FUSE_FRAMES  20
-#define CHAIN_RANGE  inttof32(22)         // 爆発のこれだけ近くの樽も爆発する
+#define CHAIN_RANGE  inttof32(22)
 #define BOOM_FRAMES  40
 #define PUFF_FRAMES  20
 #define DRAW_RANGE   inttof32(220)
-#define DOOR_W       inttof32(13)         // 扉のモデル（fix_all #1）：その扉板、ちょうつがいから端まで
+#define DOOR_W       inttof32(13)
 #define DOOR_H       inttof32(23)
-#define DOOR_SWING   (DEGREES_IN_CIRCLE / 4)   // 開いた状態：4分の1回転（原作のもの：約93度）
-#define DOOR_STEP    (inttof32(1) / 24)   // 24フレームで開くか閉じる
-#define DOOR_HOLD    240                  // …そして4秒開いたまま（レオンが邪魔な間はもっと長く）
+#define DOOR_SWING   (DEGREES_IN_CIRCLE / 4)
+#define DOOR_STEP    (inttof32(1) / 24)
+#define DOOR_HOLD    240
 #define BELL_R       floattof32(3.5)
-#define BELL_LEN     inttof32(9)          // 鐘のモデル（fix_all #9）はその地点からこれだけ下にぶら下がる
+#define BELL_LEN     inttof32(9)
 #define RING_FRAMES  120
-#define HANG_R       inttof32(3)          // 容器（fix_all #5、その地点のまわり）
-#define HANG_LOW     floattof32(6.6)      // …その地点からこれだけ下まで届く
-#define HANG_G       floattof32(0.08)     // 落ちる、1フレームあたり
+#define HANG_R       inttof32(3)
+#define HANG_LOW     floattof32(6.6)
+#define HANG_G       floattof32(0.08)
 
 static int F(float v) { return (int)(v * 4096.0f); }
 
@@ -63,9 +53,8 @@ static void add_leaf(Objects *s, int kind, float hx, float hz, float ex, float e
     o->end[0] = F(ex);   o->end[1] = F(ez);
     o->top = F(height);
     o->pair = pair;
-    // 自由な端が村の方へ向かう向きに開く（扉なら外へ）。
     float tx = kind == OBJ_DOOR ? hx + (ex - hx) * 0.5f : plaza[0], tz = kind == OBJ_DOOR ? hz + 10.0f : plaza[1];
-    float ux = ex - hx, uz = ez - hz;   // +90度（ヨー）回すと (ux, uz) は (uz, -ux) になる…leaf_dir() を参照
+    float ux = ex - hx, uz = ez - hz;
     float px = hx + uz, pz = hz - ux;
     float nx = hx - uz, nz = hz + ux;
     o->swing = (px - tx) * (px - tx) + (pz - tz) * (pz - tz) < (nx - tx) * (nx - tx) + (nz - tz) * (nz - tz) ? 1 : -1;
@@ -73,8 +62,6 @@ static void add_leaf(Objects *s, int kind, float hx, float hz, float ex, float e
     o->fuse = -1;
 }
 
-// はしごの上端は足場の端にかかる：根元から足場の方へ進んで、根元より10以上高い最初の床。
-// end[0]：そこまでの距離（f32）。top：その高さ。
 static void ladder_edge(Obj *o, const Ground *g)
 {
     o->end[0] = inttof32(16);
@@ -126,8 +113,6 @@ void objects_init(Objects *s, const Ground *g, const Model *door, const Model *l
         o->dir[0] = F(l[2]); o->dir[1] = F(l[3]);
         o->top = F(l[4]);
         ladder_edge(o, g);
-        // 登り（ch_leon_base #3）はレオンを向きに沿って16単位後ろへ運ぶ：「後ろ」が足場の上になるよう、
-        // 足場と反対を向く。
         o->yaw = (int)(atan2f(-l[2], -l[3]) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
         o->pair = -1;
         o->fuse = -1;
@@ -161,7 +146,7 @@ void objects_reset(Objects *s)
 
 void objects_clear(Objects *s)
 {
-    ground_clear_gaps();   // （最後のステージの戸口）
+    ground_clear_gaps();
     s->count = 0;
     s->cold = 0;
     for (int i = 0; i < BOOMS_MAX; i++)
@@ -170,7 +155,7 @@ void objects_clear(Objects *s)
 
 int objects_add_barrel(Objects *s, int x, int z, int ref_y)
 {
-    int y = ref_y - inttof32(6);   // （ちょうどそこに床が無い。マップの端の扉の下など：それ自身の高さ）
+    int y = ref_y - inttof32(6);
     if (s->count >= OBJECTS_MAX)
         return 0;
     ground_height(s->ground, x, z, ref_y, inttof32(3), &y);
@@ -206,14 +191,11 @@ int objects_add_door(Objects *s, int x, int z, int ref_y, int yaw)
     o->yaw = yaw;
     o->top = DOOR_H;
     o->swing = 1;
-    // 戸口をまっすぐ横切る壁：どこにも続かない（レオンが入って来た扉）。閉じたまま。
     int mx = x - mulf32(cosLerp(yaw), DOOR_W / 2), mz = z + mulf32(sinLerp(yaw), DOOR_W / 2);
     int px = mx, pz = mz;
     ground_collide(s->ground, &px, &pz, o->pos[1] + inttof32(3), o->pos[1] + inttof32(16), inttof32(5));
     o->locked = px != mx || pz != mz;
     int gap_mx = mx, gap_mz = mz;
-    // …ただし両側とも少し外に壁の無い床があるとき：狭い戸口にはまった扉（12面のもの。枠が中央から
-    // 数単位以内に来る）は先に続く。
     if (o->locked)
     {
         int open = 1, nx = sinLerp(yaw), nz = cosLerp(yaw);
@@ -233,7 +215,6 @@ int objects_add_door(Objects *s, int x, int z, int ref_y, int yaw)
         if (open)
             o->locked = 0;
     }
-    // 先に続く扉：その戸口を横切る壁（部屋の輪郭）はそこでは省く。
     if (!o->locked)
         ground_add_gap(gap_mx, gap_mz, -cosLerp(yaw), sinLerp(yaw), DOOR_W / 2 - inttof32(1), inttof32(7));
     return 1;
@@ -257,7 +238,7 @@ int objects_add_bell(Objects *s, int x, int y, int z)
 int objects_add_ladder(Objects *s, int x, int z, int ref_y, int yaw)
 {
     int y, top;
-    int dx = -sinLerp(yaw), dz = -cosLerp(yaw);   // （足場の方へ）
+    int dx = -sinLerp(yaw), dz = -cosLerp(yaw);
     if (s->count >= OBJECTS_MAX || !ground_height(s->ground, x, z, ref_y, inttof32(3), &y)
         || !ground_height(s->ground, x + dx * 16, z + dz * 16, y + inttof32(60), 0, &top) || top < y + inttof32(10))
         return 0;
@@ -267,7 +248,7 @@ int objects_add_ladder(Objects *s, int x, int z, int ref_y, int yaw)
     o->pos[0] = x; o->pos[1] = y; o->pos[2] = z;
     o->dir[0] = dx; o->dir[1] = dz;
     o->top = top;
-    o->yaw = yaw;   // 登るとき、彼は足場と反対を向く（objects_init() を参照）
+    o->yaw = yaw;
     o->pair = -1;
     o->fuse = -1;
     o->drop = -1;
@@ -282,13 +263,11 @@ int objects_add_hang(Objects *s, int x, int y, int z, int yaw)
     Obj *o = &s->o[s->count - 1];
     o->kind = OBJ_HANG;
     o->yaw = yaw;
-    // それが落ちる床（end[1]）、その下の最初の床。end[0]：その落ちる速さ。
     o->end[1] = y - inttof32(60);
     ground_height(s->ground, x, z, y - inttof32(8), 0, &o->end[1]);
     return 1;
 }
 
-// 揺れる扉の自由な端、今ある所。
 static void door_end(const Obj *o, int *x, int *z)
 {
     int a = o->yaw + o->swing * mulf32(o->open, DOOR_SWING);
@@ -301,7 +280,6 @@ void objects_open_door(Objects *s, int i, const int from[3])
     Obj *o = &s->o[i];
     if (o->kind != OBJ_SWING || o->open || o->opening)
         return;
-    // +yaw で回すと端は扉の前（その +z）へ向かう：`from` から離れる向きに開く。
     int fx = sinLerp(o->yaw), fz = cosLerp(o->yaw);
     s64 side = (s64)(from[0] - o->hinge[0]) * fx + (s64)(from[2] - o->hinge[1]) * fz;
     o->swing = side > 0 ? -1 : 1;
@@ -339,8 +317,6 @@ int objects_add_crate(Objects *s, int x, int z, int ref_y, int drop)
     Obj *o = &s->o[s->count - 1];
     o->kind = OBJ_CRATE;
     o->drop = drop;
-    // 棚やテーブルの上（10面のもの：地面のデータに自分の床が無い家具）：ミッションが置く所に。家具を
-    // 抜けて下の床に落とさない。
     if (o->pos[1] < ref_y - inttof32(6 + 4))
         o->pos[1] = ref_y - inttof32(6);
     return 1;
@@ -350,7 +326,7 @@ static void start_fx(void *list, int stride, const int pos[3], int lift)
 {
     for (int i = 0; i < BOOMS_MAX; i++)
     {
-        int *e = (int *)((u8 *)list + i * stride);   // { pos[3], t }
+        int *e = (int *)((u8 *)list + i * stride);
         if (e[3] >= 0)
             continue;
         e[0] = pos[0]; e[1] = pos[1] + lift; e[2] = pos[2];
@@ -381,7 +357,6 @@ void objects_update(Objects *s, ObjEvents *ev)
         }
         if (o->kind == OBJ_HANG)
         {
-            // 撃たれた：鎖ごと落ち（原作はモデル全体を下へ押し、毎フレーム強くする）、着いた所で爆発する。
             if (o->alive && o->opening)
             {
                 o->end[0] += HANG_G;
@@ -402,7 +377,6 @@ void objects_update(Objects *s, ObjEvents *ev)
         }
         if (o->kind == OBJ_SWING)
         {
-            // 開く。しばらく開いたまま。それからまた閉じる（レオンの上には閉じない）。
             if (o->opening == 1 && o->open == 0)
                 ev->door = i;
             if (o->opening == 1 && (o->open += DOOR_STEP) >= inttof32(1))
@@ -415,7 +389,7 @@ void objects_update(Objects *s, ObjEvents *ev)
             {
                 if (s->leon && o->pos[1] - s->leon[1] < DOOR_H && s->leon[1] - o->pos[1] < DOOR_H
                     && dist_to_leaf(o, s->leon[0], s->leon[2]) < DOOR_W + inttof32(4))
-                    o->fuse = 30;   // （彼が邪魔：後で）
+                    o->fuse = 30;
                 else
                 {
                     o->opening = -1;
@@ -440,12 +414,11 @@ void objects_update(Objects *s, ObjEvents *ev)
             ev->exploded = 1;
             memcpy(ev->explode_pos, o->pos, sizeof(ev->explode_pos));
             start_fx(s->boom, sizeof(Boom), o->pos, inttof32(6));
-            // 隣のものにも引火する。
             for (int j = 0; j < s->count; j++)
             {
                 Obj *b = &s->o[j];
                 int dx = b->pos[0] - o->pos[0], dz = b->pos[2] - o->pos[2];
-                if (b->kind == OBJ_BARREL && b->alive && b->fuse < 0 && !s->cold   // （タンク：1つずつ）
+                if (b->kind == OBJ_BARREL && b->alive && b->fuse < 0 && !s->cold
                     && (s64)dx * dx + (s64)dz * dz < (s64)CHAIN_RANGE * CHAIN_RANGE)
                     b->fuse = 12;
             }
@@ -475,7 +448,6 @@ static void push_segment(int ax, int az, int bx, int bz, int *x, int *z, int rad
         return;
     if (d == 0)
     {
-        // ちょうど線の上：法線に沿って外へ。
         int l = (int)sqrt64((u64)len2);
         *x = px + (int)(-dz * radius / l);
         *z = pz + (int)(dx * radius / l);
@@ -504,7 +476,7 @@ void objects_collide(const Objects *s, int *x, int *z, int feet, int radius)
             push_segment(o->hinge[0], o->hinge[1], o->end[0], o->end[1], x, z, radius + LEAF_R);
         else if (o->kind == OBJ_SWING && feet < o->pos[1] + DOOR_H && feet > o->pos[1] - DOOR_H)
         {
-            int ex, ez;   // （扉板の今ある所、開いていても閉じていても）
+            int ex, ez;
             door_end(o, &ex, &ez);
             push_segment(o->hinge[0], o->hinge[1], ex, ez, x, z, radius + LEAF_R);
         }
@@ -527,7 +499,7 @@ void objects_draw(Objects *s, const int eye[3], u32 poly_fmt)
         int m[1][12];
         memset(m, 0, sizeof(m));
         if (o->kind == OBJ_GATE_LEAF || o->kind == OBJ_DOOR)
-            continue;   // ステージのモデルの一部（このファイルの先頭を参照）
+            continue;
         if (o->kind == OBJ_SWING)
         {
             if (!far_from(eye, o->pos))
@@ -547,7 +519,6 @@ void objects_draw(Objects *s, const int eye[3], u32 poly_fmt)
         {
             if (s->bell && !far_from(eye, o->pos))
             {
-                // 鳴った：その地点のまわりに揺れ、だんだん小さく。
                 int a = o->fuse > 0 ? mulf32(sinLerp(o->fuse * 600), o->fuse * (DEGREES_IN_CIRCLE / 12) / RING_FRAMES) : 0;
                 int c = cosLerp(a), sn = sinLerp(a);
                 m[0][0] = inttof32(1);
@@ -561,9 +532,6 @@ void objects_draw(Objects *s, const int eye[3], u32 poly_fmt)
         {
             if (o->drawn || far_from(eye, o->pos))
                 continue;
-            // はしごのモデルは +z に沿って横たわる（長さ44）：根元はミッションの地点、足場の端に立てかけて、
-            // 少しその先まで（原作の登り ch_leon_base #3 はそういうはしごを登る：1単位上がるごとに手足が
-            // 3分の1単位内へ寄る）。
             int h = o->top - o->pos[1], e = o->end[0];
             int len = (int)sqrt64((u64)((s64)h * h + (s64)e * e));
             int ch = divf32(h, len), ce = divf32(e, len), sc = divf32(len + inttof32(4), inttof32(44));
@@ -576,10 +544,10 @@ void objects_draw(Objects *s, const int eye[3], u32 poly_fmt)
         else if (o->alive && !far_from(eye, o->pos))
         {
             const Model *md = o->kind == OBJ_CRATE ? s->crate : o->kind == OBJ_BARREL ? s->barrel : s->medal;
-            int yaw = o->kind == OBJ_MEDAL ? (int)(s->tick * 200) : i * 5000;   // メダルは鎖で回る
+            int yaw = o->kind == OBJ_MEDAL ? (int)(s->tick * 200) : i * 5000;
             int p[3] = { o->pos[0], o->pos[1], o->pos[2] };
             if (o->kind == OBJ_BARREL && o->fuse >= 0 && (o->fuse & 2))
-                p[1] += inttof32(1) / 4;   // 爆発寸前：小刻みに揺れる
+                p[1] += inttof32(1) / 4;
             model_draw(md, p, yaw, poly_fmt, NULL);
         }
     }
@@ -594,7 +562,7 @@ void objects_draw_fx(Objects *s)
         {
             int size = inttof32(8) + b->t * inttof32(1) / 2;
             int alpha = 31 - b->t * 30 / BOOM_FRAMES;
-            if (s->cold)   // 液体窒素：白くゆっくりした雲
+            if (s->cold)
             {
                 billboard(s->spark_fx, 0, 0, 64, 64, b->pos, size * 2, size * 2, b->t * 150, 0, RGB15(26, 30, 31), alpha, 20 + i, 0);
                 billboard(s->spark_fx, 0, 0, 64, 64, b->pos, size * 3, size * 3, -b->t * 100, 0, RGB15(20, 26, 31), alpha / 2 + 1, 24 + i, 0);
@@ -623,12 +591,10 @@ int objects_raycast(const Objects *s, const int p[3], const int d[3], int *t_bes
             continue;
         int r = o->kind == OBJ_CRATE ? CRATE_R : o->kind == OBJ_BARREL ? BARREL_R : o->kind == OBJ_BELL ? BELL_R : o->kind == OBJ_HANG ? HANG_R : MEDAL_R;
         int y0 = o->kind == OBJ_MEDAL ? o->pos[1] - MEDAL_DROP - MEDAL_R : o->kind == OBJ_BELL ? o->pos[1] - BELL_LEN : o->kind == OBJ_HANG ? o->pos[1] - HANG_LOW : o->pos[1];
-        // 木箱と樽は銃より低い：その当たりの箱は少し上まで届く。
         int y1 = o->kind == OBJ_MEDAL ? o->pos[1] - MEDAL_DROP + MEDAL_R : o->kind == OBJ_BELL || o->kind == OBJ_HANG ? o->pos[1] + inttof32(2)
                : o->pos[1] + (o->kind == OBJ_CRATE ? CRATE_H : BARREL_H) + inttof32(3);
         if (aa == 0)
             continue;
-        // 縦の円柱の判定、ガナードと同じ（64ビットに収めるため 4096 倍）。
         s64 fx = p[0] - o->pos[0], fz = p[2] - o->pos[2];
         s64 b = (fx * d[0] + fz * d[2]) >> 12;
         s64 c = ((fx * fx + fz * fz) >> 12) - (((s64)r * r) >> 12);
@@ -670,12 +636,12 @@ int objects_hit(Objects *s, int i)
     }
     if (o->kind == OBJ_HANG)
     {
-        o->opening = 1;   // 落ちてくる
+        o->opening = 1;
         return 1;
     }
     if (o->kind == OBJ_BELL)
     {
-        o->fuse = RING_FRAMES;   // （鳴る：原作で物音を立てる）
+        o->fuse = RING_FRAMES;
         return 1;
     }
     if (o->kind == OBJ_MEDAL)
@@ -697,7 +663,6 @@ int objects_action(const Objects *s, const int pos[3], int feet, int yaw, int *w
         const Obj *o = &s->o[i];
         if ((o->kind == OBJ_GATE_LEAF) && o->open == 0 && !o->opening)
         {
-            // 門（扉板の一番近い点）に近く、その方を向いている。
             s64 sx = o->end[0] - o->hinge[0], sz = o->end[1] - o->hinge[1], len2 = sx * sx + sz * sz;
             s64 t = len2 ? (((s64)(pos[0] - o->hinge[0]) * sx + (s64)(pos[2] - o->hinge[1]) * sz) << 12) / len2 : 0;
             if (t < 0) t = 0;
@@ -712,7 +677,6 @@ int objects_action(const Objects *s, const int pos[3], int feet, int yaw, int *w
         }
         else if (o->kind == OBJ_SWING && !o->keyed && !o->open && !o->opening && feet < o->pos[1] + inttof32(4) && feet > o->pos[1] - inttof32(4))
         {
-            // 閉じた扉に近く、その方を向いている。
             int mx = o->hinge[0] - mulf32(cosLerp(o->yaw), DOOR_W / 2), mz = o->hinge[1] + mulf32(sinLerp(o->yaw), DOOR_W / 2);
             int dx = mx - pos[0], dz = mz - pos[2];
             int d = (int)sqrt64((u64)((s64)dx * dx + (s64)dz * dz));
@@ -734,10 +698,6 @@ int objects_action(const Objects *s, const int pos[3], int feet, int yaw, int *w
         }
         else if (o->kind == OBJ_LADDER)
         {
-            // はしごの線に沿った帯、根元から測る：`along` は足場の方、`across` は横。下：根元の少し手前から、
-            // 端の下の壁のすぐそばまで（end[0] まで。はしごへ歩いて行くとそこで止まる）、足場の方を向いて。
-            // 上：足場の上で端から内側、端の方を向いて。（以前の判定は根元の7単位の円と、16先の円だった：
-            // 壁や端まで歩いても、ほとんどのはしごでレオンはその外にいて、位置を寄せる必要があった。）
             int dx = pos[0] - o->pos[0], dz = pos[2] - o->pos[2];
             int along = mulf32(dx, o->dir[0]) + mulf32(dz, o->dir[1]);
             int across = mulf32(dx, o->dir[1]) - mulf32(dz, o->dir[0]);

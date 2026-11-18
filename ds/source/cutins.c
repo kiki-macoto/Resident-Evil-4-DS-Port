@@ -1,4 +1,3 @@
-// re4zeebo/gen_cutins.ps1 がミッションファイルと re4zeebo/cutins_en.txt から生成。編集しないこと。
 #include "cutins.h"
 
 static const CutPage s01_0[] = {

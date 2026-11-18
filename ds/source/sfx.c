@@ -2,8 +2,8 @@
 
 #include "sfx.h"
 
-#define HEAR_RANGE inttof32(160)   // 音はこの距離へ向けて小さくなる
-#define MIN_VOLUME 16              // …でもその中ではかすかに聞こえ続ける
+#define HEAR_RANGE inttof32(160)
+#define MIN_VOLUME 16
 
 typedef struct {
     const s8 *data;
@@ -41,7 +41,7 @@ int sfx_init(const void *bank, size_t size)
     return 0;
 }
 
-static int level = 100;   // 全体の音量、パーセント（ポーズメニューの Sound の設定）
+static int level = 100;
 
 void sfx_level(int percent)
 {
@@ -54,7 +54,6 @@ int sfx_play(int id, int volume, int pan)
     if (id < 0 || id >= count || volume <= 0)
         return -1;
     const Sound *s = &sounds[id];
-    // サンプルはメイン RAM のプログラムのイメージの一部で、ARM7 が直接読む。
     return soundPlaySample(s->data, SoundFormat_8Bit, s->bytes, s->rate, volume > 127 ? 127 : volume,
                            pan < 0 ? 0 : pan > 127 ? 127 : pan, false, 0);
 }
@@ -68,11 +67,10 @@ int sfx_play_at(int id, int volume, const int pos[3], const int ear[3], int yaw)
     int v = volume * (HEAR_RANGE - dist) / HEAR_RANGE;
     if (v < MIN_VOLUME)
         v = MIN_VOLUME;
-    // 向き (sin yaw, cos yaw) のとき、聞き手の右は (-cos yaw, sin yaw)。
     int pan = 64;
     if (dist > 0)
     {
-        s64 side = ((s64)-cosLerp(yaw) * dx + (s64)sinLerp(yaw) * dz) >> 12;   // f32
+        s64 side = ((s64)-cosLerp(yaw) * dx + (s64)sinLerp(yaw) * dz) >> 12;
         pan = 64 + (int)(side * 56 / dist);
     }
     return sfx_play(id, v, pan);

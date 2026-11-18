@@ -1,4 +1,3 @@
-// RE4 Zeebo Edition の素材のツール：H2Z/HIZ の展開、MCT（ATC）-> PNG、一括処理。モデルは Mcm.cs に。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,7 +9,7 @@ namespace Re4Zeebo
     public class HizEntry
     {
         public string Name;
-        public int Offset;   // .h2z ファイルでのデータの絶対オフセット
+        public int Offset;
         public int Size;
         public int Size2;
         public ushort Flags;
@@ -20,8 +19,6 @@ namespace Re4Zeebo
     {
         static readonly byte[] Key = Encoding.ASCII.GetBytes("bio4");
 
-        // エントリーのヘッダーは「bio4」で XOR してある。鍵の位置はヘッダーのバイト（全エントリーの
-        // ヘッダーの流れ）でだけ進み、ファイルのデータでは進まない。
         static byte[] Dec(byte[] b, int o, int n, ref int keyPos)
         {
             var r = new byte[n];
@@ -55,8 +52,6 @@ namespace Re4Zeebo
             return list;
         }
 
-        // フォルダーの下のファイルから（Read() が読むとおりの）アーカイブを作る。名前はそこからの相対で
-        // 「/」区切り（元のアーカイブが無いときの -Unpack の出力用）。
         public static byte[] Pack(string dir)
         {
             var ms = new MemoryStream();
@@ -82,7 +77,6 @@ namespace Re4Zeebo
             return ms.ToArray();
         }
 
-        // エントリーの名前はフォルダーを含むことがある（「snd/x.wav」）。フォルダーのエントリーは「/」で終わる。
         public static bool IsSafeName(string name)
         {
             return name.Length > 0 && !name.EndsWith("/") && !name.Contains("..") && !name.Contains(":")
@@ -90,7 +84,6 @@ namespace Re4Zeebo
         }
     }
 
-    // .mcts / .mcms / .mcas のセット：u32 数、u32 offsets[数 + 1]（セットの先頭からの相対）。
     public static class ChunkSet
     {
         public static List<int[]> Read(byte[] b)
@@ -131,9 +124,6 @@ namespace Re4Zeebo
     {
         public static bool IsMct(byte[] b, int o) { return o + 0x2A <= b.Length && b[o] == 'M' && b[o + 1] == 'C' && b[o + 2] == 'T' && b[o + 3] == '_'; }
 
-        // ヘッダー（「MCT_」からのオフセット）：+0x0A u32 +0x0A からデータの終わりまでのバイト数、
-        // +0x1A u16 ID、+0x22 u16 幅、+0x24 u16 高さ、+0x28 u16 形式。
-        // 形式 0x15/0x16 は 0x3E バイトのヘッダー。0x06 は 0x2A + 256 x RGB888 のパレット。
         public static MctInfo Parse(byte[] b, int o)
         {
             if (!IsMct(b, o)) throw new InvalidDataException("no MCT_ magic");
@@ -163,7 +153,6 @@ namespace Re4Zeebo
         static void Rgb565(int c, int[] o) { o[0] = Ex5((c >> 11) & 31); o[1] = ((c >> 5) & 63) << 2 | ((c >> 5) & 63) >> 4; o[2] = Ex5(c & 31); }
         static int Ex5(int v) { return v << 3 | v >> 2; }
 
-        // ATC の RGB のブロック：c0（RGB555 + モードのビット15）、c1（RGB565）、2ビットの番号。
         static void AtcColorBlock(byte[] b, int p, byte[] rgba, int w, int bx, int by)
         {
             int c0 = BitConverter.ToUInt16(b, p), c1 = BitConverter.ToUInt16(b, p + 2);
@@ -273,16 +262,12 @@ namespace Re4Zeebo
         }
     }
 
-    // 一括処理：zip、フォルダー、または1つの .h2z を読み、PNG、OBJ のモデル、展開したファイル、CSV の
-    // レポートを書く。
     public static partial class Tool
     {
         class ArchiveTotals { public int Textures, TexBytes, DsBytes, Meshes, Triangles, Draws; }
 
         class TexRef { public string Png; public bool Alpha, Ok; public MctInfo Info; public byte[] Src; }
 
-        // テクスチャの ID 1000以上は MCT の ID（ステージのセット）。小さい ID はモデル自身の .mcts の番号
-        // （「ch_leon.mcms」-> 「ch_leon.mcts」か「ch_gna_all.mcts」）、そのアーカイブか 3d_base の中。
         static TexRef ResolveTexture(Dictionary<string, Dictionary<int, TexRef>> byId, Dictionary<string, List<TexRef>> byFile,
                                      string arch, string file, int id)
         {
@@ -308,8 +293,6 @@ namespace Re4Zeebo
             {
                 foreach (var f in Directory.GetFiles(input, "*.h2z", SearchOption.AllDirectories))
                     r.Add(new KeyValuePair<string, byte[]>(Path.GetFileNameWithoutExtension(f), File.ReadAllBytes(f)));
-                // アーカイブが無い：展開したツリー（-Unpack の out/files、アーカイブごとに1フォルダー）を、メモリの中で
-                // アーカイブに詰め直す。
                 if (r.Count == 0)
                     foreach (var d in Directory.GetDirectories(input))
                         r.Add(new KeyValuePair<string, byte[]>(Path.GetFileName(d), Hiz.Pack(d)));
@@ -345,9 +328,8 @@ namespace Re4Zeebo
             var draws = new StringBuilder("archive,file,part,offset,prim,indices,triangles,max_index,material,texture_id,texture\n");
             var totals = new SortedDictionary<string, ArchiveTotals>(StringComparer.Ordinal);
 
-            // 1回目：全部のテクスチャを展開して変換し、どのアーカイブのモデルもそれを見つけられるように。
-            var byId = new Dictionary<string, Dictionary<int, TexRef>>();          // アーカイブ -> MCT の ID -> テクスチャ
-            var byFile = new Dictionary<string, List<TexRef>>();                    // 「archive/file.mcts」-> 部分
+            var byId = new Dictionary<string, Dictionary<int, TexRef>>();
+            var byFile = new Dictionary<string, List<TexRef>>();
             var models = new List<Tuple<string, string, byte[]>>();
             foreach (var a in archives)
             {
@@ -401,7 +383,6 @@ namespace Re4Zeebo
             Func<string, string, int, TexRef> resolve = (arch, file, id) => ResolveTexture(byId, byFile, arch, file, id);
             var rgbaCache = new Dictionary<TexRef, Preview.Tex>();
 
-            // 2回目：モデル。
             foreach (var mdl in models)
             {
                 string arch = mdl.Item1, file = mdl.Item2;

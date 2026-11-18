@@ -4,11 +4,6 @@
 
 #include "garrador.h"
 
-// gal_anim.bin のクリップ（ch_gal.mcas #0,2,4,6,8,10,11,14,16,17,18,19,20,21,22,23）。
-// ポーズで見分けた：1 頭を回しながら立つ（聞き耳）、3 腕を振ってかがんだ13フレームのループ
-// （走り）、12 最後に頭の高さで爪を前に突き出す、14 その腕を120フレーム突き出したまま
-// （壁に刺さった）、4 かがんで起き上がる（ひるみ）、7 床に倒れてそのまま（死亡）。
-// テスト用ビルド：-DTEST_GAL_VIEW で順に表示（番号は FPS 欄）。
 #ifndef GAL_IDLE
 #define GAL_IDLE    1
 #endif
@@ -29,27 +24,25 @@
 #endif
 
 #define ANIM_STEP     (inttof32(20) / 60)
-#define RUN_STEP      (inttof32(20) / 60)   // （×2：走りとひるみは速く再生する）
-#define CHARGE_SPEED  floattof32(0.42)      // レオンの走り（0.60）より少し遅い：よけられる
-#define TURN          (900 / 6)             // 原作の RotSpd 1ティックあたり 900（1回転 65536。ch_param_5）
-#define CHARGE_TURN   degreesToAngle(2)     // （突進中はその場で急に曲がれない）
+#define RUN_STEP      (inttof32(20) / 60)
+#define CHARGE_SPEED  floattof32(0.42)
+#define TURN          (900 / 6)
+#define CHARGE_TURN   degreesToAngle(2)
 #define RADIUS        floattof32(3)
 #define HEIGHT        inttof32(19)
-#define REACH         inttof32(8)           // 爪は前方にこれだけ届く
-#define SLASH_DAMAGE  53                    // レオンの1200のうち原作の640（ch_param_5 のスクリプト33の最初の打撃。docs/NOTES.md）
-// ch_param_5.bin（種類0、体のレコード0）から：体力 3500。弾は胴では火力の7%、背中の寄生体では
-// 100% 減らす。ひるみの合計に 100% / 200% を足し、400 でよろめく（docs/NOTES.md）。
+#define REACH         inttof32(8)
+#define SLASH_DAMAGE  53
 #define HP            3500
 #define BODY_PCT      7
 #define BACK_PCT      100
 #define FLINCH_BODY   100
 #define FLINCH_BACK   200
 #define FLINCH_MAX    400
-#define CHARGE_MAX    150                   // 突進が続く最大フレーム数
-#define STUCK_FRAMES  150                   // 爪が壁に刺さっている
-#define CALM_FRAMES   100                   // 斬りか突進の後、また聞き耳を立てるまで
+#define CHARGE_MAX    150
+#define STUCK_FRAMES  150
+#define CALM_FRAMES   100
 #define STEP_UP       inttof32(4)
-#define LEON_ROOM     floattof32(3.5)       // レオンの体と、少し
+#define LEON_ROOM     floattof32(3.5)
 
 static void *read_all(const char *path, size_t *size)
 {
@@ -92,7 +85,7 @@ void garrador_share(Garrador *g, const Garrador *from)
 {
     garrador_unload(g);
     g->model = from->model;
-    g->model.async_list = NULL;   // 自分用の描画リスト（最初の描画で作る）
+    g->model.async_list = NULL;
     g->model.async_words = 0;
     g->anims = from->anims;
     g->shared = 1;
@@ -158,7 +151,7 @@ void garrador_hear(Garrador *g, const int pos[3], int range)
     if (g->state != GAL_CHARGE)
         set_state(g, GAL_CHARGE, GAL_RUN);
     else
-        g->timer = 0;   // 新しい物音：突進を続け、そちらへ向かう
+        g->timer = 0;
 }
 
 static int in_front(const Garrador *g, const int p[3], int reach)
@@ -184,7 +177,6 @@ void garrador_update(Garrador *g, const Ground *gr, const int leon_pos[3], const
     switch (g->state)
     {
     case GAL_LISTEN:
-        // 頭をかしげて立つ。時々ゆっくり向きを変える。
         if ((g->timer / 120) % 3 == 1)
             g->yaw += TURN;
         if (g->frame >= len)
@@ -192,7 +184,6 @@ void garrador_update(Garrador *g, const Ground *gr, const int leon_pos[3], const
         break;
     case GAL_CHARGE:
     {
-        // レオン（かアシュリー）が前方の届く範囲に：爪。
         if ((vulnerable && ldist < REACH && ldot * 2 > ldist) || (ally_pos && in_front(g, ally_pos, REACH)))
         {
             set_state(g, GAL_SLASH, GAL_SLASH_CLIP);
@@ -215,9 +206,9 @@ void garrador_update(Garrador *g, const Ground *gr, const int leon_pos[3], const
         int mx = g->pos[0] - ox, mz = g->pos[2] - oz;
         int moved = (int)sqrt64((u64)((s64)mx * mx + (s64)mz * mz));
         if (g->timer > 10 && moved < CHARGE_SPEED / 3 && dot > 0)
-            set_state(g, GAL_STUCK, GAL_STUCK_CLIP);   // 壁にぶつかった：爪が刺さる
+            set_state(g, GAL_STUCK, GAL_STUCK_CLIP);
         else if (dist < inttof32(4) || g->timer > CHARGE_MAX)
-            set_state(g, GAL_LISTEN, GAL_IDLE);        // そこには何も無い
+            set_state(g, GAL_LISTEN, GAL_IDLE);
         else if (g->frame >= len)
             g->frame -= len;
         break;
@@ -240,13 +231,12 @@ void garrador_update(Garrador *g, const Ground *gr, const int leon_pos[3], const
         if (g->timer >= STUCK_FRAMES)
         {
             set_state(g, GAL_LISTEN, GAL_IDLE);
-            g->yaw += DEGREES_IN_CIRCLE / 2;   // 振り返りながら爪を抜く
+            g->yaw += DEGREES_IN_CIRCLE / 2;
         }
         break;
     case GAL_HIT:
         if (g->frame >= len)
         {
-            // 吠えて、撃たれた方へ向かう。
             set_state(g, GAL_CHARGE, GAL_RUN);
             memcpy(g->target, leon_pos, sizeof(g->target));
         }
@@ -256,7 +246,6 @@ void garrador_update(Garrador *g, const Ground *gr, const int leon_pos[3], const
             g->frame = len - 1;
         break;
     }
-    // レオンにめり込まない：腕の長さだけ離す（レオンと彼の体の半径）。
     if (g->state != GAL_DEAD && ldist > 0 && ldist < RADIUS + LEON_ROOM)
     {
         g->pos[0] = leon_pos[0] - mulf32(divf32(lx, ldist), RADIUS + LEON_ROOM);
@@ -266,7 +255,7 @@ void garrador_update(Garrador *g, const Ground *gr, const int leon_pos[3], const
     if (g->state == GAL_CHARGE && was != GAL_CHARGE)
         ev->roar = 1;
     if (g->state == GAL_LISTEN && was != GAL_LISTEN)
-        g->timer = 0;   // CALM_FRAMES の間おとなしい
+        g->timer = 0;
 }
 
 int garrador_raycast(const Garrador *g, const int p[3], const int d[3], int *t_best, int *back)
@@ -285,14 +274,13 @@ int garrador_raycast(const Garrador *g, const int p[3], const int d[3], int *t_b
     s64 root = (s64)sqrt64(disc);
     s64 t = ((-b - root) << 12) / aa;
     if (t <= 0 && ((-b + root) << 12) / aa > 0)
-        t = 1;   // 至近距離
+        t = 1;
     if (t <= 0 || t >= *t_best)
         return 0;
     s64 y = p[1] + ((d[1] * t) >> 12) - g->feet;
     if (y < 0 || y > HEIGHT)
         return 0;
     *t_best = (int)t;
-    // 背後から：弾は彼の向いている向きに飛ぶ。寄生体は背中の上の方。
     s64 along = ((s64)sinLerp(g->yaw) * d[0] + (s64)cosLerp(g->yaw) * d[2]) >> 12;
     *back = along > 0 && y > HEIGHT / 2;
     return 1;
@@ -312,7 +300,7 @@ void garrador_shot(Garrador *g, int power, int back)
     if (g->flinch >= FLINCH_MAX && g->state != GAL_SLASH)
     {
         g->flinch = 0;
-        set_state(g, GAL_HIT, GAL_HIT_CLIP);   // よろめく
+        set_state(g, GAL_HIT, GAL_HIT_CLIP);
     }
 }
 
@@ -334,7 +322,7 @@ void garrador_draw(Garrador *g, u32 poly_fmt)
     if (!view_visible(g->pos, RADIUS * 4))
         return;
     int clip = g->clip, frame = g->frame;
-#ifdef TEST_GAL_VIEW   // テスト用ビルド：クリップを順に、3秒ずつ
+#ifdef TEST_GAL_VIEW
     static u32 t;
     t++;
     clip = (t / 180) % g->anims.count;
@@ -342,7 +330,7 @@ void garrador_draw(Garrador *g, u32 poly_fmt)
     g->clip = clip;
 #endif
     static u32 tick;
-    if (tick++ % 3 == 1 || g->state == GAL_SLASH)   // （3フレームに1回、アシュリーとはずらして）
+    if (tick++ % 3 == 1 || g->state == GAL_SLASH)
         anim_pose(&g->anims, clip, frame, &g->model, g->pose);
     model_draw(&g->model, g->pos, g->yaw, poly_fmt, (const int (*)[12])g->pose);
 }

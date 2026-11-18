@@ -1,4 +1,3 @@
-// re4zeebo/gen_stage_maps.ps1 がステージのマップのモデル（map_stg_NN.mcms）から生成。編集しないこと。
 #include "stage_maps.h"
 
 static const MapTri map01[] = {
@@ -644,16 +643,16 @@ static const MapTri map12[] = {
 };
 
 const StageMap stage_maps[12] = {
-    { map01, 59 },   // 1
-    { map02, 50 },   // 2
-    { map03, 61 },   // 3
-    { map04, 21 },   // 4
-    { map05, 59 },   // 5
-    { map06, 38 },   // 6
-    { map07, 59 },   // 7
-    { map08, 67 },   // 8
-    { map09, 44 },   // 9
-    { map10, 60 },   // 10
-    { map11, 42 },   // 11
-    { map12, 57 },   // 12
+    { map01, 59 },
+    { map02, 50 },
+    { map03, 61 },
+    { map04, 21 },
+    { map05, 59 },
+    { map06, 38 },
+    { map07, 59 },
+    { map08, 67 },
+    { map09, 44 },
+    { map10, 60 },
+    { map11, 42 },
+    { map12, 57 },
 };
