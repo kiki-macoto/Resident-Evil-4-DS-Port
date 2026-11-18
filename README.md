@@ -128,7 +128,7 @@ Docker Desktop は、ビルドするときに毎回起動しておく必要が�
 ### 2. リポジトリを取ってくる
 
 ```powershell
-git clone <このリポジトリの URL>
+git clone <https://github.com/kiki-macoto/Resident-Evil-4-DS-Port.git>
 cd <リポジトリのフォルダ>
 ```
 
