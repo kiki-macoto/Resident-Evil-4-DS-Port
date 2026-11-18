@@ -1,15 +1,14 @@
-// Background music for the DS: the game's General MIDI tracks played through Windows' own
-// MIDI synthesizer (the MIDI mapper, normally the Microsoft GS Wavetable Synth), recorded from
-// the default audio output (WASAPI loopback), then IMA-ADPCM encoded for the DS sound hardware.
-// Rendering happens in real time, so anything else playing on the PC is recorded too.
+// DS 用の BGM：原作の General MIDI の曲を Windows 自身の MIDI シンセサイザー（MIDI マッパー、
+// 普通は Microsoft GS Wavetable Synth）で再生し、既定の音声出力から録音して（WASAPI ループバック）、
+// DS のサウンドハードウェア用に IMA-ADPCM で符号化する。
+// 描画は実時間なので、PC でほかに鳴っているものも録音される。
 //
-// Music file (.bin, "RMU1"):
-//   char magic[4] "RMU1"; u16 count, u16 rate (Hz)
-//   per track: u32 bytes; u8 data[bytes] (DS IMA-ADPCM: s16 first sample, u8 step index, u8 0,
-//   then 4-bit codes, low nibble first; bytes a multiple of 4), looping from the start
+// 音楽のファイル（.bin、「RMU1」）：
+//   char magic[4] 「RMU1」。u16 count, u16 rate（Hz）
+//   曲ごとに：u32 bytes。u8 data[bytes]（DS の IMA-ADPCM：s16 最初のサンプル、u8 ステップの番号、
+//   u8 0、それから4ビットのコード、下位のニブルが先。bytes は4の倍数）、先頭からループ
 //
-// The recording runs on past the end of each track; that tail (reverb, release) is mixed into
-// the start, so the loop has no gap.
+// 録音は各曲の終わりを過ぎても続く。その尾（残響、リリース）を先頭に混ぜるので、ループに切れ目が無い。
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -22,13 +21,13 @@ namespace Re4Zeebo
 {
     public static class MidiFile
     {
-        // Channel messages of a format 0/1 file as (time in seconds, packed short message).
+        // フォーマット 0/1 のファイルのチャンネルメッセージを（秒単位の時刻, パックしたショートメッセージ）で。
         public static List<KeyValuePair<double, uint>> Events(byte[] b, out double length)
         {
             if (b.Length < 14 || Encoding.ASCII.GetString(b, 0, 4) != "MThd") throw new InvalidDataException("not a MIDI file");
             int ntr = b[10] << 8 | b[11], div = b[12] << 8 | b[13];
             if ((div & 0x8000) != 0) throw new InvalidDataException("SMPTE time division not supported");
-            var raw = new List<Tuple<long, int, uint>>();   // tick, order, message (0xFF000000 | tempo for tempo changes)
+            var raw = new List<Tuple<long, int, uint>>();   // ティック、順番、メッセージ（テンポの変更は 0xFF000000 | テンポ）
             int p = 14, order = 0;
             long maxTick = 0;
             for (int t = 0; t < ntr && p + 8 <= b.Length; t++)
@@ -69,8 +68,8 @@ namespace Re4Zeebo
                 else o.Add(new KeyValuePair<double, uint>(sec, e.Item3));
             }
             length = sec + (maxTick - last) * (double)tempo / div / 1e6;
-            // Round up to the end of the bar the last event falls in (4/4 at the last tempo), so
-            // the loop keeps the beat when the final notes end early.
+            // 最後のイベントがある小節の終わりまで切り上げる（最後のテンポで 4/4）。最後の音が早く終わっても
+            // ループが拍を保つように。
             double bar = 4.0 * tempo / 1e6;
             length = Math.Ceiling(length / bar - 0.01) * bar;
             return o;
@@ -122,7 +121,7 @@ namespace Re4Zeebo
         volatile bool stop;
         Thread thread;
         readonly Stopwatch clock = new Stopwatch();
-        public long StartTicks;   // Stopwatch ticks at the first captured sample
+        public long StartTicks;   // 最初に録ったサンプルでのストップウォッチのティック
 
         public Loopback()
         {
@@ -153,7 +152,7 @@ namespace Re4Zeebo
 
         public void Stop() { stop = true; thread.Join(); client.Stop(); }
 
-        // Packets are placed by their device position, so silent stretches (no packets) stay in time.
+        // パケットはデバイスの位置で置くので、無音の区間（パケットが無い）も時間どおりに残る。
         void Run()
         {
             long first = -1;
@@ -168,7 +167,7 @@ namespace Re4Zeebo
                     if (first < 0)
                     {
                         first = pos;
-                        // qpc is in 100 ns units of the performance counter; Stopwatch uses the same counter.
+                        // qpc はパフォーマンスカウンターの 100 ns 単位。ストップウォッチも同じカウンターを使う。
                         StartTicks = (long)(qpc / 1e7 * Stopwatch.Frequency);
                     }
                     long at = pos - first;
@@ -200,8 +199,8 @@ namespace Re4Zeebo
 
         const double TailSeconds = 3.0;
 
-        // Plays one track through the MIDI mapper while recording the output; returns the loop
-        // (length seconds, tail folded into the start) at the device's mix rate.
+        // 出力を録音しながら MIDI マッパーで1曲を再生する。デバイスのミックスのレートでループ
+        // （length 秒、尾は先頭に折り込む）を返す。
         static float[] RenderMidi(byte[] mid, out int rate, out double length)
         {
             var events = MidiFile.Events(mid, out length);
@@ -210,7 +209,7 @@ namespace Re4Zeebo
             timeBeginPeriod(1);
             try
             {
-                for (int ch = 0; ch < 16; ch++)   // reset controllers, all notes off
+                for (int ch = 0; ch < 16; ch++)   // コントローラーをリセット、全部の音を止める
                 {
                     midiOutShortMsg(h, (uint)(0xB0 | ch | 121 << 8));
                     midiOutShortMsg(h, (uint)(0xB0 | ch | 123 << 8));
@@ -218,7 +217,7 @@ namespace Re4Zeebo
                 Thread.Sleep(300);
                 var rec = new Loopback();
                 rec.Start();
-                Thread.Sleep(500);   // the capture is running before the first note
+                Thread.Sleep(500);   // 最初の音の前に録音が動いている
                 long t0 = rec.Clock.ElapsedTicks;
                 foreach (var e in events)
                 {
@@ -233,8 +232,7 @@ namespace Re4Zeebo
                 rec.Stop();
                 rate = rec.Rate;
 
-                // Where t0 falls in the recording: the clock started just before the capture,
-                // so the offset is t0 measured from the capture's first packet.
+                // 録音の中での t0 の位置：時計は録音の直前に始めたので、ずれは録音の最初のパケットから測った t0。
                 long clockAtCapture = rec.StartTicks - (Stopwatch.GetTimestamp() - rec.Clock.ElapsedTicks);
                 int start = (int)Math.Max(0, (t0 - clockAtCapture) * (double)rate / Stopwatch.Frequency);
                 int n = (int)Math.Round(length * rate), tail = (int)(TailSeconds * rate);
@@ -243,7 +241,7 @@ namespace Re4Zeebo
                 {
                     int k = start + i;
                     loop[i] = k < rec.Mono.Count ? rec.Mono[k] : 0;
-                    if (i < tail && k + n < rec.Mono.Count) loop[i] += rec.Mono[k + n];   // fold the tail into the start
+                    if (i < tail && k + n < rec.Mono.Count) loop[i] += rec.Mono[k + n];   // 尾を先頭に折り込む
                 }
                 return loop;
             }
@@ -254,11 +252,11 @@ namespace Re4Zeebo
             }
         }
 
-        // DS IMA-ADPCM: header (first sample, step index), then nibbles; the predictor
-        // follows the decoder exactly so errors don't build up.
+        // DS の IMA-ADPCM：ヘッダー（最初のサンプル、ステップの番号）、それからニブル。予測はデコーダーに
+        // ぴったり従うので、誤差が積み重ならない。
         public static byte[] EncodeImaAdpcm(short[] s)
         {
-            int count = s.Length & ~7;   // whole words of nibbles
+            int count = s.Length & ~7;   // ニブルのワード単位
             var o = new byte[4 + count / 2];
             int pred = s.Length > 0 ? s[0] : 0, index = 0;
             o[0] = (byte)pred; o[1] = (byte)(pred >> 8); o[2] = 0; o[3] = 0;
@@ -271,15 +269,15 @@ namespace Re4Zeebo
                 if (diff >= step >> 1) { nib |= 2; diff -= step >> 1; delta += step >> 1; }
                 if (diff >= step >> 2) { nib |= 1; delta += step >> 2; }
                 pred += (nib & 8) != 0 ? -delta : delta;
-                pred = Math.Max(-32767, Math.Min(32767, pred));   // the DS clamps to -0x7FFF..0x7FFF
+                pred = Math.Max(-32767, Math.Min(32767, pred));   // DS は -0x7FFF..0x7FFF に制限する
                 index = Math.Max(0, Math.Min(88, index + ImaIndex[nib]));
                 o[4 + i / 2] |= (byte)(i % 2 == 0 ? nib : nib << 4);
             }
             return o;
         }
 
-        // musicSpecs: "name=archive/folder:a,b" (MIDI names without .mid) -> <outDir>/<name>.bin;
-        // the recordings also go to <wavDir>/<track>.wav.
+        // musicSpecs：「name=archive/folder:a,b」（.mid を除いた MIDI の名前）-> <outDir>/<name>.bin。
+        // 録音は <wavDir>/<track>.wav にも出す。
         public static List<string> ExportMusic(string input, string outDir, string wavDir, string[] musicSpecs, int dsRate, Action<string> log)
         {
             Directory.CreateDirectory(outDir);
@@ -311,7 +309,7 @@ namespace Re4Zeebo
                     float peak = 1e-6f;
                     foreach (var v in loop) peak = Math.Max(peak, Math.Abs(v));
                     float gain = 0.9f / peak;
-                    // Resample to the DS rate (linear; the synth has little content up there).
+                    // DS のレートに再サンプリング（線形。シンセはそのあたりの成分が少ない）。
                     int m = (int)((long)loop.Length * dsRate / rate);
                     var pcm = new short[m];
                     for (int i = 0; i < m; i++)

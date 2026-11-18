@@ -1,15 +1,15 @@
-// RE4 Zeebo Edition skeletons (in MCM), skin weights and MCA animations, plus CPU skinning.
+// RE4 Zeebo Edition の骨格（MCM の中）、スキンの重み、MCA のアニメーション、それと CPU のスキニング。
 //
-// Skeleton block (inside an MCM_ chunk, same "00000000 <node> FFFFFFFF 00000000" tag as the
-// other blocks): u16 node count at tag+16, then per node 91 bytes:
-//   s16 parent, s32 m[12] (16.16: 3x3 rotation row-major, then translation), s32 scale[3],
-//   u8 flag, s32 bboxMin[3], s32 bboxMax[3], s32 unknown.
-// Skin block: see Mcm.cs. Bone numbers in its records index its bone list, which holds node ids.
-// MCA_ chunk: u16 frame count at +0x29, u16 node count at +0x2D, node records from +0x2F:
-//   u16 channel count, then per channel: u8 kind (1 = translation, 5 = rotation), u8 3,
-//   u8 key count, 5 bytes, keys of [u8 interpolation][u8 vectors][u16 0][u16 frame] and
-//   `vectors` x (s32 x, y, z): 1 = value (linear keys), 3 = value + in/out tangents
-//   (hermite keys, interpolated here as linear).
+// 骨格のブロック（MCM_ のチャンクの中、ほかのブロックと同じ「00000000 <node> FFFFFFFF 00000000」の
+// タグ）：tag+16 に u16 のノード数、それからノードごとに91バイト：
+//   s16 親、s32 m[12]（16.16：3x3 の回転を行優先、それから平行移動）、s32 scale[3]、
+//   u8 フラグ、s32 bboxMin[3]、s32 bboxMax[3]、s32 不明。
+// スキンのブロック：Mcm.cs を参照。そのレコードのボーン番号はボーンの一覧の番号で、一覧はノードの ID を持つ。
+// MCA_ のチャンク：+0x29 に u16 のフレーム数、+0x2D に u16 のノード数、+0x2F からノードのレコード：
+//   u16 チャンネル数、それからチャンネルごとに：u8 種類（1 = 平行移動、5 = 回転）、u8 3、
+//   u8 キー数、5バイト、[u8 補間][u8 ベクトル数][u16 0][u16 フレーム] のキーと
+//   `vectors` x (s32 x, y, z)：1 = 値（線形のキー）、3 = 値 + 入 / 出の接線
+//   （エルミートのキー、ここでは線形として補間）。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -20,7 +20,7 @@ namespace Re4Zeebo
     public class Skeleton
     {
         public int[] Parent;
-        public float[][] Local;   // 4x3 per node: r00 r01 r02 r10 r11 r12 r20 r21 r22 tx ty tz
+        public float[][] Local;   // ノードごとに 4x3：r00 r01 r02 r10 r11 r12 r20 r21 r22 tx ty tz
         public int Count { get { return Parent.Length; } }
     }
 
@@ -30,7 +30,7 @@ namespace Re4Zeebo
     {
         public int Kind;
         public int[] Frames;
-        public float[][] Values;   // raw 16.16 values as floats
+        public float[][] Values;   // 生の 16.16 の値を浮動小数点で
     }
 
     public class Animation
@@ -70,7 +70,7 @@ namespace Re4Zeebo
             return null;
         }
 
-        // Per position: node ids and weights (same block Mcm.ExpandSkinned uses).
+        // 位置ごと：ノードの ID と重み（Mcm.ExpandSkinned が使うのと同じブロック）。
         public static SkinInfluence[] ReadSkin(byte[] b, int start, int len, int positions)
         {
             int end = start + len;
@@ -88,7 +88,7 @@ namespace Re4Zeebo
                 for (int i = 0; i < positions && ok; i++)
                 {
                     int inf = b[p];
-                    if (inf == 0 && i > 0) { r[i] = r[i - 1]; p += 2; continue; }   // same as previous
+                    if (inf == 0 && i > 0) { r[i] = r[i - 1]; p += 2; continue; }   // 前と同じ
                     if (inf == 0 || inf > 4 || p + 2 + 6 * inf > end) { ok = false; break; }
                     var s = new SkinInfluence { Nodes = new int[inf], Weights = new float[inf] };
                     for (int k = 0; k < inf; k++)
@@ -131,8 +131,8 @@ namespace Re4Zeebo
                     ch.Values = new float[keys][];
                     for (int k = 0; k < keys; k++)
                     {
-                        // Key: [u8 interpolation][u8 vectors][u16 0][u16 frame] then `vectors`
-                        // vectors of `comps` values: the value, plus in/out tangents when 3.
+                        // キー：[u8 補間][u8 ベクトル数][u16 0][u16 フレーム]、それから `comps` 個の値の `vectors` 個の
+                        // ベクトル：値と、3のときは入 / 出の接線。
                         int vectors = p + 2 <= end ? b[p + 1] : 0;
                         if (vectors == 0 || p + 6 + vectors * comps * 4 > end) { LastError = "node " + i + " chan " + c + " key " + k + " at +0x" + (p - start).ToString("x"); return null; }
                         ch.Frames[k] = BitConverter.ToUInt16(b, p + 4);
@@ -158,8 +158,8 @@ namespace Re4Zeebo
             return r;
         }
 
-        // 4x3 helpers (rotation rows + translation).
-        public static float[] Mul(float[] a, float[] b)   // a * b (apply b first)
+        // 4x3 の補助関数（回転の行 + 平行移動）。
+        public static float[] Mul(float[] a, float[] b)   // a * b（b を先にかける）
         {
             var r = new float[12];
             for (int i = 0; i < 3; i++)
@@ -170,7 +170,7 @@ namespace Re4Zeebo
             return r;
         }
 
-        public static float[] Inverse(float[] m)   // rigid transforms only
+        public static float[] Inverse(float[] m)   // 剛体の変換だけ
         {
             var r = new float[12];
             for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) r[i * 3 + j] = m[j * 3 + i];
@@ -185,9 +185,9 @@ namespace Re4Zeebo
             oz = m[6] * x + m[7] * y + m[8] * z + m[11];
         }
 
-        // Rotation units/order are configurable while they're being worked out.
-        public static float AngleScale = (float)(Math.PI * 2);   // raw (16.16) * AngleScale = radians
-        public static string Order = "XYZ";                       // applied first .. last
+        // 回転の単位 / 順は、調べている間は設定で変えられる。
+        public static float AngleScale = (float)(Math.PI * 2);   // 生の値（16.16）* AngleScale = ラジアン
+        public static string Order = "XYZ";                       // 最初 .. 最後にかける
 
         public static float[] Euler(float rx, float ry, float rz)
         {
@@ -205,8 +205,8 @@ namespace Re4Zeebo
 
         public static float[][] Globals(Skeleton s, Func<int, float[]> local)
         {
-            // Parents usually come first, but not always (some weapon models list a child before
-            // its parent): resolve each node's parent chain on demand.
+            // 親はたいてい先に来るが、いつもではない（武器のモデルには子を親より先に並べるものがある）：
+            // 各ノードの親の連鎖は必要なときに解決する。
             var g = new float[s.Count][];
             Func<int, float[]> get = null;
             get = i =>
@@ -231,8 +231,8 @@ namespace Re4Zeebo
             return q;
         }
 
-        // The pose a fraction t of the way from clip a's first frame to clip b's, turning each
-        // node the short way (mixing Euler angles directly bends some poses out of shape).
+        // クリップ a の最初のフレームからクリップ b のものへ割合 t だけ進んだポーズ。各ノードは短い方へ回す
+        // （オイラー角を直接混ぜると、ポーズが崩れるものがある）。
         public static Animation MixPoses(Animation a, Animation b, float t)
         {
             int n = Math.Max(a.Nodes.Length, b.Nodes.Length);
@@ -261,7 +261,7 @@ namespace Re4Zeebo
                 float w = wa * qa[0] + wb * qb[0], x = wa * qa[1] + wb * qb[1], y = wa * qa[2] + wb * qb[2], z = wa * qa[3] + wb * qb[3];
                 float len = (float)Math.Sqrt(w * w + x * x + y * y + z * z);
                 w /= len; x /= len; y /= len; z /= len;
-                // Back to Euler angles (rotation matrix Rz * Ry * Rx; see Euler()).
+                // オイラー角に戻す（回転行列 Rz * Ry * Rx。Euler() を参照）。
                 float m00 = 1 - 2 * (y * y + z * z), m10 = 2 * (x * y + w * z), m20 = 2 * (x * z - w * y), m21 = 2 * (y * z + w * x), m22 = 1 - 2 * (x * x + y * y);
                 float rx = (float)Math.Atan2(m21, m22), ry = (float)Math.Asin(Math.Max(-1f, Math.Min(1f, -m20))), rz = (float)Math.Atan2(m10, m00);
                 o.Nodes[i].Add(new AnimChannel { Kind = 5, Frames = new[] { 0 }, Values = new[] { new[] { rx / AngleScale, ry / AngleScale, rz / AngleScale } } });
@@ -283,7 +283,7 @@ namespace Re4Zeebo
             return m;
         }
 
-        // Returns skinned positions per *position* (not per vertex).
+        // スキニングした位置を*位置*ごとに返す（頂点ごとではない）。
         public static float[] Skin(float[] bindPos, SkinInfluence[] skin, Skeleton s, Animation a, float frame)
         {
             var bindG = Globals(s, i => s.Local[i]);
