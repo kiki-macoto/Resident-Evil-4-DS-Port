@@ -2,7 +2,7 @@
 
 # RE4 Zeebo Edition for Nintendo DS（ベータ版）
 
-<img width="480" height="272" alt="download" src="https://github.com/user-attachments/assets/7c152217-cc77-43e6-b1f4-e62a24ac6afa" />
+<img width="480" height="272" alt="download" src="docs/PR.png" />
 
 Zeebo 版『バイオハザード4』（Resident Evil 4 Zeebo Edition、2009年）のデータを使い、
 **ニンテンドーDS / DSi のネイティブプログラムとして作り直した** 非公式の移植です。
