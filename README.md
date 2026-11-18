@@ -125,7 +125,14 @@ Docker Desktop は、ビルドするときに毎回起動しておく必要が�
 
 [Git for Windows](https://git-scm.com/downloads/win) を入れます。設定は初期値のままで構いません。
 
-GitHub のページの「Code」→「Download ZIP」でダウンロードして展開します。
+### 2. リポジトリを取ってくる
+
+```powershell
+git clone <このリポジトリの URL>
+cd <リポジトリのフォルダ>
+```
+
+Git を使わない場合は、GitHub のページの「Code」→「Download ZIP」でダウンロードして展開します。
 その場合は、展開したフォルダで次を一度だけ実行してください（インターネットから来たファイルとしてスクリプトが止められるのを解除します）。
 
 ```powershell
@@ -150,14 +157,37 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
   New-Item -ItemType Directory -Force assets/title
   ```
 
-### 4. ゲームのデータを DS 用に変換する
+### 4. ビルドする（変換からROM作成まで1コマンド）
+
+PowerShell 7 で、`build.ps1` と `re4zeebo` フォルダがあるフォルダに移動してから実行します（ZIP で取ってきた場合、展開したフォルダの中にもう一段同じ名前のフォルダがあることがあります。その中です）。
 
 ```powershell
-./re4zeebo/export_all.ps1 -InputPath "D:\Downloads\Resident Evil 4 - Zeebo Edition.zip"
+cd "C:\Users\<あなた>\Downloads\re4-zeebo-ds-main"   # 例：build.ps1 があるフォルダ
+```
+
+初回は、zip の場所を付けて実行します。
+
+```powershell
+./build.ps1 -InputPath "D:\Downloads\Resident Evil 4 - Zeebo Edition.zip"
 ```
 
 `-InputPath` は自分の zip の場所に書き換えてください。スペースを含むので `"` で囲みます。
-これ1本で、次のことを順に行います。全部で、音楽の録音を除いて2分ほど（手元の PC で約1分半）、録音に1分半ほどかかります。
+2回目からは zip の場所を覚えているので、次だけで構いません。
+
+```powershell
+./build.ps1
+```
+
+これ1本で、次のことを順に行います。最後に緑の `Done:` と `ds/re4ds.nds` の場所が出れば成功です。
+
+| 順番 | 内容 |
+| --- | --- |
+| 1 | PowerShell 7 と Docker を確かめる。Docker Desktop が起動していなければ起動して、準備ができるまで待つ |
+| 2 | ゲームのデータを DS 用に変換する（必要なときだけ。下の説明） |
+| 3 | BlocksDS で ROM を作る（初回は BlocksDS のイメージ 約 1 GB をダウンロード） |
+
+**変換はいつ行われるか**：初回と、変換ツール（`re4zeebo/` の中）、文字（`ds/source/text.h`）、タイトル画像を変えたときだけ、自動で行います。C のソースを直しただけなら変換は省略され、1分ほどで終わります。
+変換には、音楽の録音を除いて2分ほど、録音に1分半ほどかかります。変換の中身は次のとおりです。
 
 | 順番 | 内容 | できるもの |
 | --- | --- | --- |
@@ -172,30 +202,18 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - 録音中（約1分半）は、ほかの音（動画、通知音など）を鳴らさないでください。一緒に録音されます。
 - スピーカーやヘッドホンなど、音の出力先が有効になっている必要があります。
 - 録音の結果は `re4zeebo/out/music/*.wav` にも保存されるので、聞いて確かめられます。
-- 音楽だけ後で録り直すには、次のようにします。
 
-  ```powershell
-  ./re4zeebo/export_all.ps1 -InputPath "<zip の場所>" -NoMusic     # 音楽以外を変換
-  ./re4zeebo/export_all.ps1 -InputPath "<zip の場所>" -OnlyMusic   # 音楽だけ録音
-  ```
-
-最後に `Done.` と出れば完了です。途中で止まった場合は、赤いエラーの直前に `== ` で始まる行があり、どの変換で止まったかが分かります。
-
-### 5. ビルドする
-
-Docker Desktop が起動している（Engine running）ことを確かめてから、次を実行します。
+ほかの使い方：
 
 ```powershell
-./build.ps1
+./build.ps1 -Export        # 何も変えていなくても変換をやり直す
+./build.ps1 -NoMusic       # 変換するとき、音楽は録り直さない（今の music.bin のまま）
+./build.ps1 clean          # 中間ファイルを消す（そのあと ./build.ps1 で最初から作り直し）
 ```
 
-`ds/re4ds.nds` ができれば成功です。
+音楽だけ録り直すには `./re4zeebo/export_all.ps1 -InputPath "<zip の場所>" -OnlyMusic` のあと `./build.ps1` です。
 
-- 初回は BlocksDS のイメージ（展開後 約 1 GB）をダウンロードするので時間がかかります。2回目からは1分ほどで終わります。
-- 中間ファイルを消して最初からビルドし直すには `./build.ps1 clean` のあと `./build.ps1` です。
-- ソースだけを直したときは、`./build.ps1` だけで構いません（4. の変換はやり直さなくて大丈夫です）。
-
-### 6. PC で動かしてみる（任意）
+### 5. PC で動かしてみる（任意）
 
 [melonDS](https://melonds.kuribo64.net/) をダウンロードして、`tools/melonDS/melonDS.exe` になるように展開しておくと、ビルドしてすぐ起動できます。
 
@@ -211,11 +229,11 @@ melonDS の操作のキー割り当ては「Config」→「Input and hotkeys」�
 | 何を変えたか | やること |
 | --- | --- |
 | `ds/source/` の C のソース | `./build.ps1` |
-| `ds/source/text.h` の文字（新しい文字を使った） | 下の文字の変換をしてから `./build.ps1` |
-| `re4zeebo/cutins_en.txt`（台詞の英訳） | `./re4zeebo/gen_cutins.ps1` のあと `./build.ps1` |
-| 変換ツール（`re4zeebo/*.cs`） | `./re4zeebo/export_all.ps1 -InputPath "<zip の場所>" -NoMusic` のあと `./build.ps1` |
+| `ds/source/text.h` の文字（新しい文字を使った） | `./build.ps1`（文字の変換も自動で行います） |
+| `re4zeebo/cutins_en.txt`（台詞の英訳） | `./build.ps1` |
+| 変換ツール（`re4zeebo/*.cs`） | `./build.ps1 -NoMusic` |
 
-文字の変換（`text.h` で使っている文字だけを、ゲームのフォントから取り出します）：
+文字の変換だけを手で行うとき（`text.h` で使っている文字だけを、ゲームのフォントから取り出します）：
 
 ```powershell
 ./re4zeebo/re4zeebo.ps1 -InputPath re4zeebo/out/files -OutDir ds/data -DsFont 'font=common/2d_fnt_00.mct;common/2d_fnt.hfi;ds/source/text.h'
@@ -228,16 +246,32 @@ melonDS の操作のキー割り当ては「Config」→「Input and hotkeys」�
 
 | 出たメッセージ・症状 | 原因と対処 |
 | --- | --- |
-| `failed to connect to the docker API`、`docker: The term 'docker' is not recognized` | Docker Desktop が起動していません。起動して「Engine running」になるまで待ちます |
+| `failed to connect to the docker API`、`docker: The term 'docker' is not recognized` | Docker Desktop が起動していません。`./build.ps1` は自動で起動を試みます。だめなら手で起動して「Engine running」になるまで待ちます |
 | `スクリプトの実行が無効` / `running scripts is disabled` | 「2. リポジトリを取ってくる」の `Set-ExecutionPolicy` を実行します |
+| `export_all.ps1` が認識されない（`is not recognized`）、`Files of the repository are missing` | リポジトリのファイルが足りません。ZIP の一部だけを展開した、フォルダの中にもう一段フォルダがある（`re4-zeebo-ds-main\re4-zeebo-ds-main\`）、などが原因です。ZIP を「すべて展開」し直し、`build.ps1` と `re4zeebo` フォルダが並んでいるフォルダで `./build.ps1` を実行します。`cd` で移動してから実行してください |
+| `The folder's path has [ or ] in it` | フォルダの場所（途中のフォルダも含む）に `[` `]` が入っていると、PowerShell がファイルを見つけられません。`re4-zeebo-ds` など、`[` `]` の無い名前に変えてから実行します |
 | `Add-Type` や C# のエラーがたくさん出る | Windows PowerShell 5.1 で実行しています。PowerShell 7（`pwsh`）で実行し直します |
-| `assets/title/title_ds_edition_source.png is missing` | タイトル画像がありません。「3.」のとおり置いてから、4. をやり直します |
-| ビルドで `title_bin` などが見つからないというエラー | `ds/data` のファイルが足りません。4. が最後（`Done.`）まで終わっているか確かめます |
+| `assets/title/title_ds_edition_source.png is missing` | タイトル画像がありません。「3.」のとおり置いてから、`./build.ps1` をやり直します |
+| ビルドで `title_bin` などが見つからないというエラー | `ds/data` のファイルが足りません。`./build.ps1 -Export` で変換をやり直します |
 | 音楽が鳴らない、雑音が入っている | 録音中にほかの音が鳴ったか、出力先が無効でした。`-OnlyMusic` で録り直します |
-| 物語のシーンで絵が出ず、台詞だけ出る | `ds/nitrofs/eve*.bin` がありません。`./re4zeebo/gen_cutins.ps1` を実行してからビルドします |
+| 物語のシーンで絵が出ず、台詞だけ出る | `ds/nitrofs/eve*.bin` がありません。`./build.ps1 -Export` で変換をやり直します |
 | 実機で起動しない | DS のフラッシュカートによっては DLDI のパッチが必要です。フラッシュカートの説明を見てください |
 
+### 物語のシーン
 
+ステージの始まりやボス戦で流れる、絵と台詞のシーンです。
+台詞は原作（ポルトガル語）を英語に訳したもの（AI使用）で、`re4zeebo/cutins_en.txt` にあります。
+書式は1行に1ページで、`ステージ番号2桁:台詞番号|英語の文`（`/` で改行、1行31文字まで）です。
+
+`ds/source/cutins.c` は、この英訳とミッションのファイルから作ったものです。
+シーンの絵（`ds/nitrofs/eveNN_k.bin`）はゲームのデータから作るのでリポジトリには入っておらず、「4. ビルドする」の変換で作られます。
+絵が無いときは、台詞だけが表示されます。
+
+英訳を直したときは、次を実行してからビルドします（絵も書き出し直されます）。
+
+```powershell
+./re4zeebo/gen_cutins.ps1
+```
 
 ## インストール
 
