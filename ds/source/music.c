@@ -10,7 +10,7 @@ typedef struct {
 static Track tracks[MUSIC_COUNT];
 static int count, rate;
 static int playing = -1, channel = -1, current_volume = -1;
-static int level = 100, asked = 0;   // master volume (percent) and the volume last asked for
+static int level = 100, asked = 0;   // 全体の音量（パーセント）と、最後に頼まれた音量
 
 static u16 rd16(const u8 *p) { return p[0] | p[1] << 8; }
 static u32 rd32(const u8 *p) { return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24; }
@@ -48,14 +48,19 @@ void music_play(int track, int volume)
     music_stop();
     if (track < 0 || track >= count)
         return;
-    // Loop from word 1, right after the ADPCM header: the hardware keeps the decoder state it
-    // had there and restores it on every repeat. The length excludes that header word.
+    // ADPCM のヘッダーのすぐ後のワード1からループ：ハードウェアはそこでのデコーダーの状態を保ち、
+    // 繰り返すたびに戻す。長さはそのヘッダーのワードを含まない。
     const Track *t = &tracks[track];
     asked = volume;
     volume = volume * level / 100;
     channel = soundPlaySample(t->data, SoundFormat_ADPCM, t->bytes - 4, rate, volume, 64, true, 1);
     playing = channel >= 0 ? track : -1;
     current_volume = volume;
+}
+
+int music_asked(void)
+{
+    return asked;
 }
 
 void music_volume(int volume)

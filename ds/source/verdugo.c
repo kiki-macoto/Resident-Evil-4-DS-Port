@@ -4,11 +4,10 @@
 
 #include "verdugo.h"
 
-// Clips of ver_anim.bin (ch_ver.mcas #0,1,2,3,4,6,9,10,12,16,17,18,20,22,24), told apart by
-// their poses: 0 stands, 1 walks, 2 is an 11-frame crouched loop (running), 6 swings the tail
-// up over his head to strike in front, 7 springs up 70 units (to the ceiling), 8 comes down
-// from 64 units, 13 a short flinch, 14 sinks slowly to the floor (death). Test builds:
-// -DTEST_VER_VIEW shows each in turn (number in the FPS field).
+// ver_anim.bin のクリップ（ch_ver.mcas #0,1,2,3,4,6,9,10,12,16,17,18,20,22,24）、ポーズで
+// 見分けた：0 立つ、1 歩く、2 は11フレームのしゃがんだループ（走り）、6 は尾を頭の上に振り上げて
+// 前を打つ、7 は70単位跳び上がる（天井へ）、8 は64単位から降りてくる、13 は短いひるみ、14 は
+// ゆっくり床に沈む（死）。テスト用ビルド：-DTEST_VER_VIEW でそれぞれを順に出す（番号は FPS の欄）。
 #ifndef VER_IDLE
 #define VER_IDLE    0
 #endif
@@ -35,23 +34,26 @@
 #endif
 
 #define ANIM_STEP     (inttof32(20) / 60)
-#define WALK_SPEED    floattof32(0.2)
-#define RUN_SPEED     floattof32(0.36)      // slower than Leon runs (0.60): he can be led to a tank
-#define RUN_FROM      inttof32(30)          // runs when Leon is farther than this
-#define TURN          degreesToAngle(3)
+#define WALK_SPEED    (inttof32(200) / 768)  // 原作の 20Hz の1ティックあたり200、1/256 単位（ch_param_7。docs/NOTES.md）
+#define RUN_SPEED     floattof32(0.36)      // レオンの走り（0.60）より遅い：タンクまで誘い出せる
+#define RUN_FROM      inttof32(30)          // レオンがこれより遠いと走る
+#define TURN          (800 / 6)             // 原作の RotSpd、20Hz の1ティックあたり800（1回転 65536。ch_param_7）
 #define RADIUS        floattof32(3)
 #define HEIGHT        inttof32(24)
-#define TAIL_FROM     inttof32(13)          // strikes when Leon is this close, in front
-#define REACH         inttof32(16)          // his tail reaches this far
-#define TAIL_DAMAGE   50
-#define HP            120                   // a handgun hit takes 1 (unfrozen)
-#define FROZEN_TIMES  20                    // a hit while frozen counts this many times
+#define TAIL_FROM     inttof32(13)          // レオンが前方のこの近さにいると打つ
+#define REACH         inttof32(16)          // 尾はここまで届く
+#define TAIL_DAMAGE   54                    // 原作のレオンの1200のうち650（ch_param_7 のスクリプト12-40。docs/NOTES.md）
+// ch_param_7.bin（種類0、体のレコード0）から：体力20000、弾はその火力（ハンドガン100）の100%を減らし、
+// 同じだけひるみの合計に足す。1200でひるむ（docs/NOTES.md）。
+#define HP            20000
+#define FLINCH_MAX    1200
+#define FROZEN_TIMES  20                    // 凍っている間の当たりはこの回数分に数える（移植版独自）
 #define FROZEN_FRAMES (60 * 5)
 #ifndef LEAP_EVERY
-#define LEAP_EVERY    (60 * 14)             // stalking this long, he leaps up out of sight
+#define LEAP_EVERY    (60 * 14)             // これだけ忍び寄ったら、跳び上がって見えなくなる
 #endif
 #define GONE_FRAMES   (60 * 2)
-#define DROP_BEHIND   inttof32(14)          // he comes down this far beside Leon
+#define DROP_BEHIND   inttof32(14)          // レオンの横のこの距離に降りてくる
 #define LEON_ROOM     floattof32(3.5)
 #define STEP_UP       inttof32(4)
 
@@ -121,6 +123,7 @@ void verdugo_place(Verdugo *v, const Ground *gr, int x, int z, int ref_y, int ya
     v->pos[1] = v->feet;
     v->yaw = yaw;
     v->hp = HP;
+    v->flinch = 0;
     v->next_leap = LEAP_EVERY;
     set_state(v, VER_STALK, VER_WALK);
 }
@@ -183,7 +186,7 @@ void verdugo_update(Verdugo *v, const Ground *gr, const int leon_pos[3], int leo
         break;
     }
     case VER_TAIL:
-        // The tail comes down a little past halfway through the clip.
+        // 尾はクリップの半分を少し過ぎたところで振り下ろされる。
         if (!v->struck && v->frame >= len * 3 / 5)
         {
             v->struck = 1;
@@ -211,8 +214,7 @@ void verdugo_update(Verdugo *v, const Ground *gr, const int leon_pos[3], int leo
     case VER_GONE:
         if (v->timer >= GONE_FRAMES)
         {
-            // Down beside Leon, to one side of where he was (else the other), where the camera
-            // behind Leon sees him.
+            // レオンの横、彼がいた所の片側（でなければ反対側）に、レオンの後ろのカメラから見える所に降りる。
             int ld = dist > 0 ? dist : 1;
             for (int side = 1; side >= -1; side -= 2)
             {
@@ -229,7 +231,7 @@ void verdugo_update(Verdugo *v, const Ground *gr, const int leon_pos[3], int leo
             }
             {
                 int ex = leon_pos[0] - v->pos[0], ez = leon_pos[2] - v->pos[2];
-                // Facing Leon: the angle whose (sin, cos) points along (ex, ez).
+                // レオンの方を向く：(sin, cos) が (ex, ez) の方を指す角度。
                 int best = 0;
                 s64 best_dot = -((s64)1 << 62);
                 for (int a = 0; a < DEGREES_IN_CIRCLE; a += DEGREES_IN_CIRCLE / 64)
@@ -263,7 +265,7 @@ void verdugo_update(Verdugo *v, const Ground *gr, const int leon_pos[3], int leo
             v->frame = len - 1;
         break;
     }
-    // He doesn't walk into Leon.
+    // レオンにめり込まない。
     if (v->state != VER_DEAD && v->state != VER_GONE && dist > 0 && dist < RADIUS + LEON_ROOM)
     {
         v->pos[0] = leon_pos[0] - mulf32(divf32(dx, dist), RADIUS + LEON_ROOM);
@@ -283,7 +285,7 @@ int verdugo_freeze(Verdugo *v, const int pos[3], int range)
     {
         int clip = v->clip, frame = v->frame;
         set_state(v, VER_FROZEN, clip);
-        v->frame = frame;   // stiff where he stood
+        v->frame = frame;   // 立っていた所で固まる
     }
     else
         v->timer = 0;
@@ -306,7 +308,7 @@ int verdugo_raycast(const Verdugo *v, const int p[3], const int d[3], int *t_bes
     s64 root = (s64)sqrt64(disc);
     s64 t = ((-b - root) << 12) / aa;
     if (t <= 0 && ((-b + root) << 12) / aa > 0)
-        t = 1;   // point blank
+        t = 1;   // 至近距離
     if (t <= 0 || t >= *t_best)
         return 0;
     s64 y = p[1] + ((d[1] * t) >> 12) - v->feet;
@@ -316,16 +318,25 @@ int verdugo_raycast(const Verdugo *v, const int p[3], const int d[3], int *t_bes
     return 1;
 }
 
-void verdugo_shot(Verdugo *v, int damage)
+void verdugo_shot(Verdugo *v, int power)
 {
     if (v->state == VER_DEAD || v->state == VER_GONE || v->state == VER_UP)
         return;
     int frozen = v->state == VER_FROZEN;
-    v->hp -= frozen ? damage * FROZEN_TIMES : damage;
+    v->hp -= frozen ? power * FROZEN_TIMES : power;
     if (v->hp <= 0)
+    {
         set_state(v, VER_DEAD, VER_DIE);
-    else if (!frozen && v->state == VER_STALK && v->hp % 8 == 0)
-        set_state(v, VER_HIT, VER_HIT_CLIP);   // flinches now and then
+        return;
+    }
+    if (frozen)
+        return;
+    v->flinch += power;
+    if (v->flinch >= FLINCH_MAX && v->state == VER_STALK)
+    {
+        v->flinch = 0;
+        set_state(v, VER_HIT, VER_HIT_CLIP);
+    }
 }
 
 void verdugo_push(const Verdugo *v, int *x, int *z, int r)
@@ -346,7 +357,7 @@ void verdugo_draw(Verdugo *v, u32 poly_fmt)
     if (v->state == VER_GONE || !view_visible(v->pos, RADIUS * 6))
         return;
     int clip = v->clip, frame = v->frame;
-#ifdef TEST_VER_VIEW   // test builds: each clip in turn, 3 s each
+#ifdef TEST_VER_VIEW   // テスト用ビルド：クリップを順に、3秒ずつ
     static u32 t;
     t++;
     clip = (t / 180) % v->anims.count;
@@ -363,7 +374,7 @@ void verdugo_draw_fx(Verdugo *v, const Sheet *fx)
 {
     if (v->state != VER_FROZEN)
         return;
-    // Frost: pale blue haze over him, thinning as the ice gives.
+    // 霜：彼の上に薄い青のもや、氷がとけるにつれて薄くなる。
     int alpha = 20 - v->timer * 14 / FROZEN_FRAMES;
     for (int i = 0; i < 2; i++)
     {

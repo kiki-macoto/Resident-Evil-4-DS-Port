@@ -1,54 +1,54 @@
-// 2D pictures (RD2D sheets from re4zeebo -Ds2D) drawn as screen-space quads with the 3D
-// engine, in front of the scene: HUD parts, the title art.
+// 2D の絵（re4zeebo -Ds2D の RD2D シート）を、3D エンジンで画面空間の四角形として、場面の手前に
+// 描く：HUD の部品、タイトルの絵。
 #ifndef SHEET_H__
 #define SHEET_H__
 
 #include <nds.h>
 
 typedef struct {
-    int w, h;    // picture size in pixels (the texture may be larger, padded right/down)
-    int tex;     // texture name
+    int w, h;    // 絵の大きさ、ピクセル（テクスチャはもっと大きく、右 / 下に余白があることがある）
+    int tex;     // テクスチャの名前
 } Sheet;
 
-// Parses the sheet and uploads its texture. Returns 0 on success.
+// シートを解析してテクスチャを転送する。成功で0を返す。
 int sheet_load(Sheet *s, const void *data, size_t size);
 
-// Frees the sheet's texture (and palette) in VRAM.
+// VRAM のシートのテクスチャ（とパレット）を解放する。
 void sheet_free(Sheet *s);
 
-// Billboards: pictures in the 3D scene turned to face the camera (about the vertical axis
-// only, so light columns stay upright). billboard_begin() takes the camera for the frame.
+// ビルボード：カメラの方を向けた 3D の場面の中の絵（縦の軸のまわりだけなので、光の柱は立ったまま）。
+// billboard_begin() がそのフレームのカメラを受け取る。
 void billboard_begin(const int eye[3], const int at[3]);
-// Part (sx, sy, sw, sh) drawn w x h world units (f32) centred on pos, turned by angle in the
-// picture plane; flip_x/flip_y mirror it. poly_fmt is OR-ed in (e.g. POLY_FOG).
+// 部分 (sx, sy, sw, sh) を pos を中心に w x h ワールド単位（f32）で、絵の面の中で angle だけ回して
+// 描く。flip_x/flip_y で反転。poly_fmt を OR する（たとえば POLY_FOG）。
 void billboard(const Sheet *s, int sx, int sy, int sw, int sh, const int pos[3], int w, int h,
                int angle, int flip, u16 color, int alpha, int id, u32 poly_fmt);
 #define FLIP_X 1
 #define FLIP_Y 2
-// The same with the picture spread over the local rectangle (x0, y0) top-left .. (x1, y1)
-// bottom-right (f32, in units of w and h, around pos; billboard() uses -0.5..0.5).
+// 同じもの、絵をローカルの長方形 (x0, y0) 左上 .. (x1, y1) 右下に広げて（f32、w と h の単位、
+// pos のまわり。billboard() は -0.5..0.5 を使う）。
 void billboard_rect(const Sheet *s, int sx, int sy, int sw, int sh, const int pos[3], int w, int h,
                     int x0, int y0, int x1, int y1, int angle, int flip, u16 color, int alpha, int id, u32 poly_fmt);
 
-// Screen-space drawing between overlay_begin() and overlay_end(): coordinates are pixels
-// (0..256 x 0..192, y down) and each quad lands in front of the previous one.
+// overlay_begin() と overlay_end() の間の画面空間の描画：座標はピクセル（0..256 x 0..192、y は
+// 下向き）で、各四角形は前のものの手前に来る。
 void overlay_begin(void);
-// The next quads at the back of the depth range (behind any 3D drawn after them), until the next overlay_begin().
+// 次の四角形は深度の範囲の奥に（その後に描く 3D の後ろ）、次の overlay_begin() まで。
 void overlay_far(void);
-// A flat triangle (screen pixels).
+// 平らな三角形（画面のピクセル）。
 void overlay_tri(int x0, int y0, int x1, int y1, int x2, int y2, u16 color, int alpha, int id);
 void overlay_end(void);
-// keep 1: the next overlay_begin() goes on in front of the last pass instead of starting afresh;
-// shift_y moves all that is drawn by so many pixels (0, 0 afterwards).
+// keep 1：次の overlay_begin() は新しく始めず、前の回の手前に続ける。
+// shift_y は描くもの全部をそのピクセル数だけ動かす（後で 0, 0 に）。
 void overlay_keep_depth(int keep, int shift_y);
 
-// Untextured rectangle (alpha 1..31).
+// テクスチャなしの長方形（アルファ 1..31）。
 void overlay_rect(int x0, int y0, int x1, int y1, u16 color, int alpha, int id);
 
-// 1-pixel line (the hardware draws a triangle with two equal corners as a line).
+// 1ピクセルの線（ハードウェアは2つの角が同じ三角形を線として描く）。
 void overlay_line(int x0, int y0, int x1, int y1, u16 color, int id);
 
-// Picture part (sx, sy, sw, sh) drawn at (dx, dy) stretched to dw x dh, tinted by color.
+// 絵の部分 (sx, sy, sw, sh) を (dx, dy) に dw x dh に引き伸ばし、color で色付けして描く。
 void overlay_sheet(const Sheet *s, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh,
                    u16 color, int alpha, int id);
 

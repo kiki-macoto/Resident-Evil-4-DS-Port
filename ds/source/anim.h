@@ -1,4 +1,4 @@
-// Keyframe animations in the RDA1 format written by re4zeebo/DsExport.cs.
+// re4zeebo/DsExport.cs が書き出す RDA1 形式のキーフレームアニメーション。
 #ifndef ANIM_H__
 #define ANIM_H__
 
@@ -9,38 +9,38 @@
 typedef struct {
     int count, nodes;
     int frames[ANIM_MAX];
-    // Per animation and node: translation keys, rotation keys and where they start.
+    // アニメーションとノードごとに：移動キー、回転キーと、その始まりの位置。
     const u8 *node_data[ANIM_MAX][MODEL_MAX_NODES];
 } AnimSet;
 
-// One node's local transform before it becomes a matrix, so poses can be blended.
+// 行列にする前のノードのローカル変換（ポーズ同士を補間できるように）。
 typedef struct {
-    int t[3];     // translation, f32 (the bind translation when not animated)
-    int r[3];     // Euler angles X, Y, Z in libnds units, applied X first
-    int has_r;    // 0: keep the bind rotation (node not rotated by any blended pose)
+    int t[3];     // 移動量、f32（アニメーションしないときはバインド時の移動量）
+    int r[3];     // オイラー角 X, Y, Z（libnds 単位）、X から順に掛ける
+    int has_r;    // 0：バインドの回転のまま（補間するどのポーズでも回らないノード）
 } NodeLocal;
 
-// Returns 0 on success. The node count must match the model's skeleton.
+// 成功で0を返す。ノード数はモデルの骨格と同じでなければならない。
 int anim_load(AnimSet *a, const void *data, size_t size);
 
-// Local transforms of every node of `m` for animation `anim` at `frame` (f32, wraps at the
-// animation length).
+// モデル `m` の全ノードの、アニメーション `anim` のフレーム `frame`（f32、長さで
+// ループ）でのローカル変換。
 void anim_sample(const AnimSet *a, int anim, int frame, const Model *m, NodeLocal out[]);
 
-// dst = dst + (src - dst) * w for every node (w is f32, 0..1); angles take the short way.
+// 全ノードで dst = dst + (src - dst) * w（w は f32、0..1）。角度は近い方向に回す。
 void anim_blend(NodeLocal dst[], const NodeLocal src[], int count, int w);
 
-// dst += (a - b) * w for every node: adds the change from pose b to pose a (e.g. a recoil
-// relative to its first frame) on top of another pose. Angles take the short way.
+// 全ノードで dst += (a - b) * w：ポーズ b から a への変化（例：最初のフレームからの反動）を
+// 別のポーズの上に足す。角度は近い方向に回す。
 void anim_add_delta(NodeLocal dst[], const NodeLocal a[], const NodeLocal b[], int count, int w);
-// The same with each joint's rotation from b to a turned as a rotation (b^-1 a), applied after
-// dst's own: right for big motions (the shotgun's pump), where adding the Euler angles is not.
+// 同じことを、各関節の b から a への回転を回転として（b^-1 a）、dst の回転の後に掛けて行う。
+// オイラー角を足すのでは合わない大きな動き（ショットガンのポンプ）用。
 void anim_add_delta_rot(NodeLocal dst[], const NodeLocal a[], const NodeLocal b[], int count, int w);
 
-// Global node matrices (f32 4x3) from local transforms.
+// ローカル変換からノードのグローバル行列（f32 4x3）を作る。
 void anim_compose(const Model *m, const NodeLocal loc[], int out[][12]);
 
-// anim_sample() + anim_compose().
+// anim_sample() + anim_compose()。
 void anim_pose(const AnimSet *a, int anim, int frame, const Model *m, int out[][12]);
 
 #endif

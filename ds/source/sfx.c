@@ -2,8 +2,8 @@
 
 #include "sfx.h"
 
-#define HEAR_RANGE inttof32(160)   // sounds fade out towards this distance
-#define MIN_VOLUME 16              // ...but stay faintly audible inside it
+#define HEAR_RANGE inttof32(160)   // 音はこの距離へ向けて小さくなる
+#define MIN_VOLUME 16              // …でもその中ではかすかに聞こえ続ける
 
 typedef struct {
     const s8 *data;
@@ -41,7 +41,7 @@ int sfx_init(const void *bank, size_t size)
     return 0;
 }
 
-static int level = 100;   // master volume, percent (the pause menu's Sound setting)
+static int level = 100;   // 全体の音量、パーセント（ポーズメニューの Sound の設定）
 
 void sfx_level(int percent)
 {
@@ -54,7 +54,7 @@ int sfx_play(int id, int volume, int pan)
     if (id < 0 || id >= count || volume <= 0)
         return -1;
     const Sound *s = &sounds[id];
-    // The samples are part of the program image in main RAM, which the ARM7 reads directly.
+    // サンプルはメイン RAM のプログラムのイメージの一部で、ARM7 が直接読む。
     return soundPlaySample(s->data, SoundFormat_8Bit, s->bytes, s->rate, volume > 127 ? 127 : volume,
                            pan < 0 ? 0 : pan > 127 ? 127 : pan, false, 0);
 }
@@ -68,7 +68,7 @@ int sfx_play_at(int id, int volume, const int pos[3], const int ear[3], int yaw)
     int v = volume * (HEAR_RANGE - dist) / HEAR_RANGE;
     if (v < MIN_VOLUME)
         v = MIN_VOLUME;
-    // The listener's right is (-cos yaw, sin yaw) for facing (sin yaw, cos yaw).
+    // 向き (sin yaw, cos yaw) のとき、聞き手の右は (-cos yaw, sin yaw)。
     int pan = 64;
     if (dist > 0)
     {

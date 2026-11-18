@@ -15,7 +15,7 @@ int sheet_load(Sheet *s, const void *data, size_t size)
     s->w = rd16(p + 4);
     s->h = rd16(p + 6);
     p += 8;
-    // Texture record as in RDS1 models (see re4zeebo/Ds2D.cs).
+    // RDS1 のモデルと同じテクスチャのレコード（re4zeebo/Ds2D.cs を参照）。
     int w = rd16(p), h = rd16(p + 2);
     GL_TEXTURE_TYPE_ENUM type = p[4];
     int transparent = p[5] & 1;
@@ -24,7 +24,7 @@ int sheet_load(Sheet *s, const void *data, size_t size)
     const u8 *texels = p + 12;
     if (12 + 8 + bytes + pal_colors * 2 > size)
         return -2;
-    // No wrapping: neighbouring parts of the picture must not bleed in at the edges.
+    // 繰り返しなし：絵の隣の部分が端ににじんではいけない。
     int param = TEXGEN_TEXCOORD | (transparent ? GL_TEXTURE_COLOR0_TRANSPARENT : 0);
     glGenTextures(1, &s->tex);
     glBindTexture(0, s->tex);
@@ -46,8 +46,8 @@ static int bb_right[3], bb_normal[3];
 
 void billboard_begin(const int eye[3], const int at[3])
 {
-    model_sync();   // a character's list may still be streaming to the geometry FIFO
-    // Horizontal direction from the camera; the picture plane faces back along it.
+    model_sync();   // キャラクターのリストがまだジオメトリの FIFO に流れているかもしれない
+    // カメラからの水平の向き。絵の面はそれに沿って後ろを向く。
     int fx = at[0] - eye[0], fz = at[2] - eye[2];
     int len = (int)sqrt64((u64)((s64)fx * fx + (s64)fz * fz));
     if (len == 0)
@@ -71,7 +71,7 @@ void billboard_rect(const Sheet *s, int sx, int sy, int sw, int sh, const int po
                     int x0, int y0, int x1, int y1, int angle, int flip, u16 color, int alpha, int id, u32 poly_fmt)
 {
     glPushMatrix();
-    // Rows: the picture's x axis, y axis, normal, then the position (hardware row-vector order).
+    // 行：絵の x 軸、y 軸、法線、それから位置（ハードウェアの行ベクトルの順）。
     m4x3 m = { {
         bb_right[0], bb_right[1], bb_right[2],
         0, inttof32(1), 0,
@@ -101,8 +101,8 @@ void billboard_rect(const Sheet *s, int sx, int sy, int sw, int sh, const int po
     glPopMatrix(1);
 }
 
-// Orthographic projection of 4 x 3 units = 256 x 192 pixels (64 v16 units per pixel), y down.
-// Depth: z = +1 is the near plane; each quad moves a little nearer than the last.
+// 4 x 3 単位 = 256 x 192 ピクセル（1ピクセルあたり v16 で64単位）の正射影、y は下向き。
+// 深度：z = +1 が近い平面。各四角形は前のものより少し手前に来る。
 #define Z_FIRST floattof32(0.5)
 #define Z_STEP  8
 static int z, keep_depth, shift;
@@ -110,8 +110,8 @@ static int z, keep_depth, shift;
 void overlay_begin(void)
 {
     model_sync();
-    // The characters' DMA'd lists set the texture behind libnds' back, and it skips a bind
-    // of the texture it believes is current: start from none, so the next bind really binds.
+    // キャラクターの DMA のリストは libnds の知らない所でテクスチャを設定し、libnds は今のものと
+    // 思っているテクスチャの結び付けを飛ばす：なしから始めて、次の結び付けが本当に結び付くように。
     glBindTexture(0, 0);
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();

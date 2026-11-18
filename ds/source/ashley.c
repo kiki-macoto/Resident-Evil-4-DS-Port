@@ -5,10 +5,10 @@
 
 #include "ashley.h"
 
-// Clips of ash_anim.bin (ch_ash.mcas #0..15, in order; seen with -DTEST_ASH_VIEW, which shows
-// each in turn, number in the FPS field): 0-1 walk, 2 run, 4 idle (long), 7 crouching down,
-// 8 crouched with her hands over her head, 11 climbing a ladder (as Leon's: 32 up, 16 in),
-// 12 hit, 13 falling down.
+// ash_anim.bin のクリップ（ch_ash.mcas #0..15 の順。-DTEST_ASH_VIEW で順に表示し、番号は
+// FPS 欄に出る）：0-1 歩き、2 走り、4 待機（長い）、7 しゃがみ込む、
+// 8 頭を手で覆ってしゃがんでいる、11 はしごを登る（レオンと同じく上に32、奥に16）、
+// 12 被弾、13 倒れる。
 #ifndef ASH_CLIP_IDLE
 #define ASH_CLIP_IDLE  4
 #endif
@@ -26,16 +26,16 @@
 #define ASH_CLIP_DUCK  8
 #endif
 #define ASH_CLIP_CLIMB 11
-#define LADDER_IN     inttof32(16)       // the climb ends this far in from the foot
-#define LADDER_NEAR    inttof32(4)       // at its start this close (then on it)
-#define LADDER_GIVE_UP (60 * 8)          // not at the ladder after this long: she is just there
+#define LADDER_IN     inttof32(16)       // 登り終わりは、はしごの足元からこれだけ奥
+#define LADDER_NEAR    inttof32(4)       // 登り始めの位置にこれだけ近づいたら（登り始める）
+#define LADDER_GIVE_UP (60 * 8)          // これだけ経ってもはしごに着かなければ、その場に移す
 
 #define ANIM_STEP     (inttof32(20) / 60)
-#define FOLLOW_NEAR   inttof32(3)        // stops this close to her place by Leon...
-#define BEHIND        inttof32(5)        // (her place: this far behind him...
-#define BESIDE        inttof32(7)        // ...and this far to his left)
-#define FOLLOW_RUN    inttof32(28)       // ...runs when farther than this
-#define WAIT_NEAR     inttof32(30)       // waiting, she joins him this close
+#define FOLLOW_NEAR   inttof32(3)        // レオンのそばの自分の位置にこれだけ近づいたら止まる…
+#define BEHIND        inttof32(5)        // （自分の位置：レオンのこれだけ後ろ…
+#define BESIDE        inttof32(7)        // …で、これだけ左）
+#define FOLLOW_RUN    inttof32(28)       // …これより遠ければ走る
+#define WAIT_NEAR     inttof32(30)       // 待っているとき、これだけ近づいたらレオンについて来る
 #define WALK_SPEED    floattof32(0.22)
 #define RUN_SPEED     floattof32(0.45)
 #define TURN          degreesToAngle(6)
@@ -98,7 +98,7 @@ void ashley_place(Ashley *a, const Ground *g, int x, int z, int ref_y, int yaw)
     a->pos[2] = z;
     a->feet = ref_y;
     ground_height(g, x, z, ref_y, STEP_UP, &a->feet);
-    a->pos[1] = a->feet;   // (her bind pose stands on the origin; her bbox does not start there)
+    a->pos[1] = a->feet;   // （バインドポーズは原点に立つ。bbox は原点から始まらない）
     a->yaw = yaw;
     a->state = ASH_FOLLOW;
     a->frame = 0;
@@ -124,10 +124,10 @@ void ashley_use_ladder(Ashley *a, const int foot[3], const int dir[2], int top, 
     a->ladder = LADDER_GOING;
 }
 
-// Where her climb starts (on its floor) and ends.
+// 登り始め（その床の上）と登り終わりの位置。
 static void ladder_end(const Ashley *a, int start, int p[3])
 {
-    int in = start ? !a->lad_up : a->lad_up;   // up: from the foot to the top; down: the other way
+    int in = start ? !a->lad_up : a->lad_up;   // 上り：足元から上へ。下り：その逆
     p[0] = a->lad_foot[0] + (in ? mulf32(a->lad_dir[0], LADDER_IN) : 0);
     p[2] = a->lad_foot[2] + (in ? mulf32(a->lad_dir[1], LADDER_IN) : 0);
     p[1] = in ? a->lad_top : a->lad_foot[1];
@@ -140,9 +140,9 @@ static void walk_to(Ashley *a, const Ground *g, int tx, int tz, int near, int *d
     int speed = 0;
     if (*dist > near)
     {
-        // Turn towards it, then walk (or run, when far).
+        // そちらを向いてから歩く（遠ければ走る）。
         int want = (int)(atan2f((float)dx, (float)dz) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
-        int diff = ((want - a->yaw + DEGREES_IN_CIRCLE / 2) & (DEGREES_IN_CIRCLE - 1)) - DEGREES_IN_CIRCLE / 2;   // (the short way: a turn is 32768)
+        int diff = ((want - a->yaw + DEGREES_IN_CIRCLE / 2) & (DEGREES_IN_CIRCLE - 1)) - DEGREES_IN_CIRCLE / 2;   // （近い方向に回す：半回転が 32768）
         a->yaw = (a->yaw + (diff > TURN ? TURN : diff < -TURN ? -TURN : diff)) & (DEGREES_IN_CIRCLE - 1);
         speed = *dist > FOLLOW_RUN ? RUN_SPEED : WALK_SPEED;
         if (speed > *dist)
@@ -159,8 +159,8 @@ static void walk_to(Ashley *a, const Ground *g, int tx, int tz, int near, int *d
     }
 }
 
-// The ladder after Leon: to its start, the climb (the clip, backwards going down), then off it.
-// Returns 1 while it has her.
+// レオンの後からはしごを使う：登り始めの位置へ行き、登る（下りはクリップを逆再生）、降りる。
+// はしごに関わっている間は1を返す。
 static int ladder_update(Ashley *a, const Ground *g)
 {
     int p[3];
@@ -171,7 +171,7 @@ static int ladder_update(Ashley *a, const Ground *g)
         walk_to(a, g, p[0], p[2], LADDER_NEAR, &dist);
         if (dist <= LADDER_NEAR || ++a->lad_t > LADDER_GIVE_UP)
         {
-            // On it: the clip moves her from the foot (the model stays there) up and in.
+            // はしごの上：クリップが足元から上と奥へ動かす（モデルの位置は足元のまま）。
             a->pos[0] = a->lad_foot[0];
             a->pos[2] = a->lad_foot[2];
             a->feet = a->pos[1] = a->lad_foot[1];
@@ -224,7 +224,7 @@ void ashley_update(Ashley *a, const Ground *g, const int leon_pos[3], int leon_y
     if (a->state == ASH_DOWN)
     {
         if (a->frame > len - 1)
-            a->frame = len - 1;   // lies still
+            a->frame = len - 1;   // 動かずに倒れている
         return;
     }
     if (a->state == ASH_HURT)
@@ -238,7 +238,7 @@ void ashley_update(Ashley *a, const Ground *g, const int leon_pos[3], int leon_y
         return;
     if (a->duck)
     {
-        // Leon aims her way: she ducks (crouched, hands over her head) and stays put.
+        // レオンがこちらに銃を向けると、しゃがんで（頭を手で覆って）その場で待つ。
         play(a, ASH_CLIP_DUCK);
         len = inttof32(a->anims.frames[a->clip]);
         if (a->frame >= len)
@@ -256,7 +256,7 @@ void ashley_update(Ashley *a, const Ground *g, const int leon_pos[3], int leon_y
             a->frame -= len;
         return;
     }
-    // She keeps to his left, a little behind (the camera is over his right shoulder).
+    // レオンの左、少し後ろにつく（カメラは右肩の上にある）。
     int fx = sinLerp(leon_yaw), fz = cosLerp(leon_yaw);
     int tx = leon_pos[0] - mulf32(fx, BEHIND) + mulf32(fz, BESIDE);
     int tz = leon_pos[2] - mulf32(fz, BEHIND) - mulf32(fx, BESIDE);
@@ -265,9 +265,9 @@ void ashley_update(Ashley *a, const Ground *g, const int leon_pos[3], int leon_y
     int speed = 0;
     if (a->state == ASH_FOLLOW && dist > FOLLOW_NEAR)
     {
-        // Turn towards him, then walk (or run, when far behind).
+        // レオンの方を向いてから歩く（遠く離れていれば走る）。
         int want = (int)(atan2f((float)dx, (float)dz) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
-        int diff = ((want - a->yaw + DEGREES_IN_CIRCLE / 2) & (DEGREES_IN_CIRCLE - 1)) - DEGREES_IN_CIRCLE / 2;   // (the short way: a turn is 32768)
+        int diff = ((want - a->yaw + DEGREES_IN_CIRCLE / 2) & (DEGREES_IN_CIRCLE - 1)) - DEGREES_IN_CIRCLE / 2;   // （近い方向に回す：半回転が 32768）
         a->yaw = (a->yaw + (diff > TURN ? TURN : diff < -TURN ? -TURN : diff)) & (DEGREES_IN_CIRCLE - 1);
         speed = dist > FOLLOW_RUN ? RUN_SPEED : WALK_SPEED;
     }
@@ -278,11 +278,11 @@ void ashley_update(Ashley *a, const Ground *g, const int leon_pos[3], int leon_y
         a->pos[2] += mulf32(cosLerp(a->yaw), speed);
         ground_collide_n(g, &a->pos[0], &a->pos[2], a->feet + STEP_UP, a->feet + HEIGHT, RADIUS, 1);
         ground_height(g, a->pos[0], a->pos[2], a->feet, STEP_UP, &a->feet);
-        a->pos[1] = a->feet;   // (her bind pose stands on the origin; her bbox does not start there)
+        a->pos[1] = a->feet;   // （バインドポーズは原点に立つ。bbox は原点から始まらない）
     }
     len = inttof32(a->anims.frames[a->clip]);
     if (a->frame >= len)
-        a->frame -= len;   // loops
+        a->frame -= len;   // ループする
 }
 
 int ashley_hit(Ashley *a, int damage)
@@ -300,7 +300,7 @@ int ashley_hit(Ashley *a, int damage)
 
 int ashley_raycast(const Ashley *a, const int p[3], const int d[3], int *t_best)
 {
-    // Vertical cylinder, as for the Ganados.
+    // 縦の円柱（ガナードと同じ）。
     s64 aa = ((s64)d[0] * d[0] + (s64)d[2] * d[2]) >> 12;
     if (aa == 0 || a->state == ASH_DOWN)
         return 0;
@@ -314,7 +314,7 @@ int ashley_raycast(const Ashley *a, const int p[3], const int d[3], int *t_best)
     if (t <= 0 || t >= *t_best)
         return 0;
     s64 y = p[1] + ((d[1] * t) >> 12) - a->feet;
-    if (y < 0 || y > (a->duck ? DUCK_HEIGHT : HEIGHT))   // ducked: shots go over her
+    if (y < 0 || y > (a->duck ? DUCK_HEIGHT : HEIGHT))   // しゃがんでいる：弾は頭上を抜ける
         return 0;
     *t_best = (int)t;
     return 1;
@@ -336,18 +336,18 @@ void ashley_draw(Ashley *a, u32 poly_fmt)
     if (!view_visible(a->pos, inttof32(10)))
         return;
     int clip = a->clip >= 0 ? a->clip : 0, frame = a->frame;
-    if (a->ladder == LADDER_ON && !a->lad_up)   // (going down: the climb backwards)
+    if (a->ladder == LADDER_ON && !a->lad_up)   // （下り：登りの逆再生）
         frame = inttof32(a->anims.frames[clip]) - 1 - frame;
     if (a->ladder == LADDER_ON && frame > inttof32(a->anims.frames[clip]) - 1)
         frame = inttof32(a->anims.frames[clip]) - 1;
-#ifdef TEST_ASH_VIEW   // test builds: each clip in turn, 2.5 s each
+#ifdef TEST_ASH_VIEW   // テスト用ビルド：クリップを順に、2.5秒ずつ
     static u32 t;
     t++;
     clip = (t / 150) % a->anims.count;
-    a->clip = clip;   // (shown in the FPS field)
+    a->clip = clip;   // （FPS 欄に表示）
     frame = (int)(t % 150) * ANIM_STEP % inttof32(a->anims.frames[clip] > 0 ? a->anims.frames[clip] : 1);
 #endif
-    // The pose at the 20 Hz animation rate (every third frame), or when the clip changes.
+    // 20Hz のアニメーション速度（3フレームに1回）か、クリップが変わったときにポーズを計算する。
     static int last_clip = -1;
     static u32 tick;
     if (clip != last_clip || tick++ % 3 == 0)

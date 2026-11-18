@@ -62,7 +62,7 @@ int ground_load(Ground *g, const void *data, size_t size)
     return 0;
 }
 
-// Sign of the 2D cross product (b - a) x (p - a), in 64 bits (coordinates are f32).
+// 2D の外積 (b - a) x (p - a) の符号、64ビットで（座標は f32）。
 static int side(int ax, int az, int bx, int bz, int px, int pz)
 {
     s64 c = (s64)(bx - ax) * (pz - az) - (s64)(bz - az) * (px - ax);
@@ -83,7 +83,7 @@ int ground_height(const Ground *g, int x, int z, int ref_y, int step_up, int *y)
         int s1 = side(t[2], t[3], t[4], t[5], x, z);
         int s2 = side(t[4], t[5], t[0], t[1], x, z);
         if ((s0 < 0 || s1 < 0 || s2 < 0) && (s0 > 0 || s1 > 0 || s2 > 0))
-            continue;   // outside (edges count as inside, for either winding)
+            continue;   // 外側（辺上は内側とする。どちらの巻き方でも）
         int h = mulf32(t[6], x) + mulf32(t[7], z) + t[8];
         if (h > ref_y + step_up)
             continue;
@@ -119,10 +119,10 @@ static int in_gap(int x, int z)
     return 0;
 }
 
-// Pushes (*x, *z) out of one wall segment if the circle overlaps it.
+// 円が壁の線分に重なっていれば、(*x, *z) をその線分から押し出す。
 static int push_out(const s32 *w, int *x, int *z, int radius)
 {
-    // Quick reject (no 64-bit division): the circle is off the segment's bounding box.
+    // 早い除外（64ビットの割り算なし）：円が線分の外接矩形から外れている。
     int lo = w[0] < w[2] ? w[0] : w[2], hi = w[0] < w[2] ? w[2] : w[0];
     if (*x + radius < lo || *x - radius > hi)
         return 0;
@@ -135,25 +135,25 @@ static int push_out(const s32 *w, int *x, int *z, int radius)
     s64 len2 = dx * dx + dz * dz;
     if (len2 == 0)
         return 0;
-    // Closest point on the segment: a + d * t, t clamped to 0..1 (t in 16.16, so that
-    // d * t stays well inside 64 bits even for long walls).
+    // 線分上の一番近い点：a + d * t、t は 0..1 に制限（t は 16.16。長い壁でも d * t が
+    // 64ビットに十分収まるように）。
     s64 num = px * dx + pz * dz;
     if (num < 0)
         num = 0;
     if (num > len2)
         num = len2;
     s64 t = (num << 16) / len2;
-    s64 ox = px - ((dx * t) >> 16), oz = pz - ((dz * t) >> 16);   // closest point -> centre
+    s64 ox = px - ((dx * t) >> 16), oz = pz - ((dz * t) >> 16);   // 一番近い点 -> 中心
     s64 dist2 = ox * ox + oz * oz;
     if (dist2 >= (s64)radius * radius)
         return 0;
     if (gap_n && in_gap((int)(*x - ox), (int)(*z - oz)))
-        return 0;   // (that part of the wall is a doorway)
+        return 0;   // （壁のその部分は戸口）
 
     s64 dist = sqrt64(dist2);
     if (dist == 0)
     {
-        // Centre exactly on the wall: push along the segment's normal.
+        // 中心がちょうど壁の上：線分の法線の向きに押す。
         s64 len = sqrt64(len2);
         ox = -dz * 4096 / len;
         oz = dx * 4096 / len;
@@ -168,9 +168,8 @@ static int push_out(const s32 *w, int *x, int *z, int radius)
     return 1;
 }
 
-// Ray tests. t is the distance along the ray (f32, d is a unit vector); a hit is kept if
-// 0 < t < *best. The ARM9 has no 64-bit divide, so candidates are rejected with
-// multiplications first and only the survivors pay for a division.
+// 光線の判定。t は光線に沿った距離（f32、d は単位ベクトル）。0 < t < *best なら当たりとして残す。
+// ARM9 には64ビットの割り算が無いので、まず掛け算で候補を落とし、残ったものだけ割り算をする。
 
 static int ray_wall(const s32 *w, const int p[3], const int d[3], s64 *best)
 {
@@ -179,8 +178,8 @@ static int ray_wall(const s32 *w, const int p[3], const int d[3], s64 *best)
     if (den == 0)
         return 0;
     s64 qx = w[0] - p[0], qz = w[1] - p[2];
-    s64 tn = qx * ez - qz * ex;                    // t = tn / den (x 4096 for f32)
-    s64 un = qx * d[2] - qz * d[0];                // u = un / den, along the segment
+    s64 tn = qx * ez - qz * ex;                    // t = tn / den（f32 には × 4096）
+    s64 un = qx * d[2] - qz * d[0];                // u = un / den、線分に沿って
     if (den < 0)
     {
         den = -den;
@@ -199,7 +198,7 @@ static int ray_wall(const s32 *w, const int p[3], const int d[3], s64 *best)
 
 static int ray_floor(const s32 *tr, const int p[3], const int d[3], s64 *best)
 {
-    // Plane y = a*x + b*z + c.
+    // 平面 y = a*x + b*z + c。
     s64 den = d[1] - (((s64)tr[6] * d[0] + (s64)tr[7] * d[2]) >> 12);
     s64 num = (((s64)tr[6] * p[0] + (s64)tr[7] * p[2]) >> 12) + tr[8] - p[1];
     if (den < 0)
@@ -220,7 +219,7 @@ static int ray_floor(const s32 *tr, const int p[3], const int d[3], s64 *best)
     return 1;
 }
 
-// Per-primitive "already tested in this cast" stamps (a primitive can sit in many cells).
+// プリミティブごとの「この光線ではもう調べた」印（1つのプリミティブは多くのマスにまたがる）。
 #define STAMP_MAX 4096
 static u16 wall_stamp[STAMP_MAX], tri_stamp[STAMP_MAX];
 static u16 cast_id;
@@ -228,7 +227,7 @@ static u16 cast_id;
 int ground_raycast(const Ground *g, const int p[3], const int d[3], int max_dist, int hit[3], int mask)
 {
     s64 best = max_dist;
-    int found = 0, own = g->ray_tri_mask != NULL;   // (none in the file: rays hit what stops walkers)
+    int found = 0, own = g->ray_tri_mask != NULL;   // （ファイルに無い：光線は歩く者を止めるものに当たる）
     if (++cast_id == 0)
     {
         memset(wall_stamp, 0, sizeof(wall_stamp));
@@ -236,8 +235,8 @@ int ground_raycast(const Ground *g, const int p[3], const int d[3], int max_dist
         cast_id = 1;
     }
 
-    // March along the ray in quarter-cell steps, testing each grid cell's walls and floors
-    // once, nearest cells first. Once a hit is closer than the cells still ahead, stop.
+    // 光線に沿って4分の1マスずつ進み、各マスの壁と床を1回ずつ、近いマスから調べる。
+    // 当たりがまだ先のマスより近くなったら止める。
     int step = g->cell_size / 4, last_cell = -1;
     for (int s = 0; s <= max_dist; s += step)
     {
@@ -299,7 +298,7 @@ int ground_collide(const Ground *g, int *x, int *z, int y_lo, int y_hi, int radi
 int ground_collide_n(const Ground *g, int *x, int *z, int y_lo, int y_hi, int radius, int passes)
 {
     int pushes = 0;
-    // Two passes settle corners where two walls push against each other.
+    // 2回：2つの壁が互いに押し合う隅を収める。
     for (int pass = 0; pass < passes; pass++)
     {
         int cx0 = (*x - radius - g->origin_x) / g->cell_size, cx1 = (*x + radius - g->origin_x) / g->cell_size;
@@ -314,7 +313,7 @@ int ground_collide_n(const Ground *g, int *x, int *z, int y_lo, int y_hi, int ra
                 {
                     const s32 *w = g->wall + g->wall_index[i] * 6;
                     if (w[5] <= y_lo || w[4] >= y_hi)
-                        continue;   // entirely below the step height or above the head
+                        continue;   // 全部が段差の高さより下か、頭より上
                     pushes += push_out(w, x, z, radius);
                 }
             }

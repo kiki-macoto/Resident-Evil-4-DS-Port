@@ -1,4 +1,4 @@
-// Generated from the game's item_tuneup_info.bin by re4zeebo/gen_shop_tune.ps1. See stages.h.
+// re4zeebo/gen_shop_tune.ps1 が原作の item_tuneup_info.bin から生成。stages.h を参照。
 #include "stages.h"
 
 const ShopTune shop_tune[] = {

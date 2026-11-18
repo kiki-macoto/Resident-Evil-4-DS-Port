@@ -1,7 +1,7 @@
-// Garrador (stage 8): ch_gal from the stage 8 archive, read from NitroFS for that stage. He is
-// blind: he stands listening, and charges at where he heard a noise (a shot, Leon running near
-// him, Leon right beside him), slashing with his claws if Leon is there. A charge that ends on
-// a wall sticks his claws in it for a while. Shots in the back (the parasite) hurt him most.
+// ガラドール（8面）：8面のアーカイブの ch_gal を、そのステージの間だけ NitroFS から読む。
+// 目が見えない：聞き耳を立てて立ち、物音（銃声、近くで走るレオン、すぐ横のレオン）のした方へ
+// 突進し、そこにレオンがいれば爪で斬る。壁で終わった突進は、しばらく爪が壁に刺さる。
+// 背中（寄生体）への弾が一番効く。
 #ifndef GARRADOR_H__
 #define GARRADOR_H__
 
@@ -18,41 +18,43 @@ typedef struct {
     AnimSet anims;
     void *model_buf, *anim_buf;
     int loaded;
-    int shared;        // model and clips copied from another one (garrador_share)
+    int shared;        // モデルとクリップをほかから写したもの（garrador_share）
     int on;
     int pos[3], feet, yaw;
     int state, frame, clip;
-    int hp;
-    int target[3];     // where he heard the noise he is charging at
-    int timer;         // frames in the current state
-    int struck;        // this slash has been checked against Leon
+    int hp;            // 原作の単位（ch_param_5 種類0：3500）
+    int flinch;        // 原作のひるみの合計：しきい値でよろめく
+    int target[3];     // 突進している物音の場所
+    int timer;         // 今の状態のフレーム数
+    int struck;        // この斬りはもうレオンへの当たりを調べた
     int pose[MODEL_MAX_NODES][12];
 } Garrador;
 
 typedef struct {
-    int hit_leon;      // damage dealt to Leon this frame (0 = none)
-    int hit_ally;      // damage dealt to Ashley this frame (0 = none)
-    int roar;          // he heard something and charges (a cue for his cry)
-    int down;          // he fell for good this frame
+    int hit_leon;      // このフレームにレオンへ与えたダメージ（0 = なし）
+    int hit_ally;      // このフレームにアシュリーへ与えたダメージ（0 = なし）
+    int roar;          // 何かを聞いて突進する（叫び声の合図）
+    int down;          // このフレームで完全に倒れた
 } GarradorEvents;
 
 int garrador_load(Garrador *g);
 void garrador_unload(Garrador *g);
-// A second Garrador drawn with the first one's model and clips (loaded once).
+// 1体目のモデルとクリップで描く2体目のガラドール（読み込みは1回）。
 void garrador_share(Garrador *g, const Garrador *from);
 void garrador_place(Garrador *g, const Ground *gr, int x, int z, int ref_y, int yaw);
-// ally_pos: Ashley (NULL if she isn't there); his claws catch her too if she is in front.
+// ally_pos：アシュリー（いなければ NULL）。前方にいれば爪は彼女にも当たる。
 void garrador_update(Garrador *g, const Ground *gr, const int leon_pos[3], const int *ally_pos, int vulnerable, GarradorEvents *ev);
 
-// A noise at pos (f32) that carries `range` (f32): he charges at it if he is within range.
+// pos（f32）での、`range`（f32）まで届く物音：範囲内にいればそちらへ突進する。
 void garrador_hear(Garrador *g, const int pos[3], int range);
 
-// Shot ray p + d*t, 0 < t < *t_best: a hit on his body updates *t_best and returns 1, and
-// *back says whether it came from behind him (the parasite).
+// 弾の光線 p + d*t（0 < t < *t_best）：体に当たれば *t_best を更新して1を返し、
+// *back に背後から（寄生体）かどうかを入れる。
 int garrador_raycast(const Garrador *g, const int p[3], const int d[3], int *t_best, int *back);
-void garrador_shot(Garrador *g, int damage, int back);
+// power：原作の単位の弾の火力（ハンドガン 100）。
+void garrador_shot(Garrador *g, int power, int back);
 
-// Pushes (x, z) out of his body.
+// (x, z) を彼の体から押し出す。
 void garrador_push(const Garrador *g, int *x, int *z, int r);
 
 void garrador_draw(Garrador *g, u32 poly_fmt);

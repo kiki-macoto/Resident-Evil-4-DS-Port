@@ -1,5 +1,5 @@
-// The missions' story scenes (cutins.c, written by re4zeebo/gen_cutins.ps1): pages of a
-// picture (nitro:/eveNN_k.bin, 256 x 128; -1 none) and up to 3 lines of text ('\n' between).
+// ミッションの物語のシーン（cutins.c、re4zeebo/gen_cutins.ps1 が書き出す）：
+// 絵（nitro:/eveNN_k.bin、256 x 128、-1 なし）と、3行までの文（間は '\n'）のページ。
 #ifndef CUTINS_H
 #define CUTINS_H
 
@@ -16,27 +16,27 @@ typedef struct
 
 typedef struct
 {
-    u8 stage;   // 0-based
-    u8 scene;   // the mission script's scene: 0 the start, 9 the clear, others events
+    u8 stage;   // 0始まり
+    u8 scene;   // ミッションのスクリプトのシーン：0 始まり、9 クリア、ほかはイベント
     u8 count;
     const CutPage *page;
-    int money;  // PTAS the scene gives (a boss's reward)
+    int money;  // シーンでもらえる PTAS（ボスの報酬）
 } CutScene;
 
 extern const CutScene cut_scenes[];
 extern const int cut_scene_count;
 
-// Scene numbers of the events.
+// イベントのシーン番号。
 #define CUT_START      0
 #define CUT_CLEAR      9
-#define CUT_CHAINSAW   10   // stage 1
-#define CUT_GIANT_UP   11   // stages 4 and 11: Leon on El Gigante's back
-#define CUT_GIANT_KNEEL 13  // stage 4
-#define CUT_GIANT_DEAD 14   // stage 4: the reward
-#define CUT_ASHLEY     10   // stage 5: Ashley found
-#define CUT_GARRADOR   16   // stage 8
-#define CUT_VERDUGO    10   // stage 12
-#define CUT_CHANDELIER 17   // stage 5: Leon swings across the nave on the chandelier
+#define CUT_CHAINSAW   10   // 1面
+#define CUT_GIANT_UP   11   // 4面と11面：エルヒガンテの背中のレオン
+#define CUT_GIANT_KNEEL 13  // 4面
+#define CUT_GIANT_DEAD 14   // 4面：報酬
+#define CUT_ASHLEY     10   // 5面：アシュリー発見
+#define CUT_GARRADOR   16   // 8面
+#define CUT_VERDUGO    10   // 12面
+#define CUT_CHANDELIER 17   // 5面：シャンデリアにつかまって身廊を渡る
 
 static inline const CutScene *cut_find(int stage, int scene)
 {

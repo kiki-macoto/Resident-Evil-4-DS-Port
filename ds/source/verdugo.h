@@ -1,7 +1,7 @@
-// Verdugo (stage 12): ch_ver from the stage 12 archive, read from NitroFS for that stage. He
-// stalks Leon, fast, and strikes with his tail; now and then he leaps up out of sight and drops
-// down by Leon. Bullets barely hurt him, unless he is frozen: a liquid nitrogen tank shot
-// open near him (main.c) freezes him stiff for a few seconds, and then shots tell.
+// ヴェルデューゴ（12面）：12面のアーカイブの ch_ver、そのステージの間だけ NitroFS から読む。彼は
+// 素早くレオンに忍び寄り、尾で打つ。時々跳び上がって見えなくなり、レオンのそばに降りてくる。
+// 弾はほとんど効かないが、凍っていれば別：彼の近くで液体窒素のタンクを撃って開けると（main.c）
+// 数秒固まり、そのとき弾が効く。
 #ifndef VERDUGO_H__
 #define VERDUGO_H__
 
@@ -22,17 +22,18 @@ typedef struct {
     int on;
     int pos[3], feet, yaw;
     int state, frame, clip;
-    int hp;
-    int timer;         // frames in the current state
-    int struck;        // this tail strike has been checked against Leon
-    int next_leap;     // frames of stalking before he leaps up again
+    int hp;            // 原作の単位（ch_param_7 の種類0：20000）
+    int flinch;        // 原作のひるみの合計
+    int timer;         // 今の状態のフレーム数
+    int struck;        // この尾の打撃はもうレオンへの当たりを調べた
+    int next_leap;     // また跳び上がるまでの忍び寄りのフレーム数
     int pose[MODEL_MAX_NODES][12];
 } Verdugo;
 
 typedef struct {
-    int hit_leon;      // damage dealt to Leon this frame (0 = none)
-    int landed;        // he dropped down from above this frame
-    int thawed;        // the ice gave way this frame
+    int hit_leon;      // このフレームにレオンへ与えたダメージ（0 = なし）
+    int landed;        // このフレームに上から降りてきた
+    int thawed;        // このフレームに氷がとけた
 } VerdugoEvents;
 
 int verdugo_load(Verdugo *v);
@@ -40,16 +41,17 @@ void verdugo_unload(Verdugo *v);
 void verdugo_place(Verdugo *v, const Ground *gr, int x, int z, int ref_y, int yaw);
 void verdugo_update(Verdugo *v, const Ground *gr, const int leon_pos[3], int leon_feet, int vulnerable, VerdugoEvents *ev);
 
-// A cold blast at pos (f32): he freezes if within range. Returns 1 if he did.
+// pos（f32）での冷気の爆発：範囲内なら凍る。凍ったら1を返す。
 int verdugo_freeze(Verdugo *v, const int pos[3], int range);
 
-// Shot ray p + d*t, 0 < t < *t_best: a hit on his body updates *t_best and returns 1.
+// 弾の光線 p + d*t、0 < t < *t_best：体に当たれば *t_best を更新して1を返す。
 int verdugo_raycast(const Verdugo *v, const int p[3], const int d[3], int *t_best);
-void verdugo_shot(Verdugo *v, int damage);
+// power：原作の単位の弾の火力（ハンドガン 100）。
+void verdugo_shot(Verdugo *v, int power);
 
 void verdugo_push(const Verdugo *v, int *x, int *z, int r);
 
 void verdugo_draw(Verdugo *v, u32 poly_fmt);
-void verdugo_draw_fx(Verdugo *v, const Sheet *fx);   // the frost on him (after billboard_begin())
+void verdugo_draw_fx(Verdugo *v, const Sheet *fx);   // 彼の上の霜（billboard_begin() の後に）
 
 #endif

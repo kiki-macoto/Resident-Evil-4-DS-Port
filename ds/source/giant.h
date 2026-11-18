@@ -1,6 +1,6 @@
-// El Gigante (stages 4 and 11): ch_elg from the stage 4 archive, read from NitroFS while one
-// of its stages is played. Walks at Leon and attacks; shots wear him down until he kneels
-// with the parasite out of his back: then A, close by, has Leon cut it. Three cuts fell him.
+// エルヒガンテ（4面と11面）：4面のアーカイブの ch_elg を、そのステージの間だけ NitroFS から読む。
+// レオンへ歩いて攻撃する。弾で弱らせるとひざをつき、背中から寄生体が出る：そのとき近くで A を
+// 押すとレオンが斬る。3回斬ると倒れる。
 #ifndef GIANT_H__
 #define GIANT_H__
 
@@ -17,43 +17,44 @@ typedef struct {
     AnimSet anims;
     void *model_buf, *anim_buf;
     int loaded;
-    int shared;        // model and clips copied from another one (giant_share)
+    int shared;        // モデルとクリップをほかから写したもの（giant_share）
     int on;
     int pos[3], feet, yaw;
     int state, frame, clip;
-    int hp;            // shots left before he kneels
-    int cuts;          // parasite cuts so far
-    int life;          // what shots and cuts wear down: at 0 he falls for good
-    int held;          // set by the caller: Leon is climbing him
-    int timer;         // frames in the current state
-    int struck;        // this attack has been checked against Leon
+    int hp;            // 原作のひるみの合計：しきい値でひざをつく
+    int cuts;          // これまでに寄生体を斬った回数
+    int life;          // 体力、原作の単位（ch_param_6 種類0：4500）：0 で倒れる
+    int held;          // 呼び出し側が設定：レオンが登っている
+    int timer;         // 今の状態のフレーム数
+    int struck;        // この攻撃はもうレオンへの当たりを調べた
     int pose[MODEL_MAX_NODES][12];
 } Giant;
 
 typedef struct {
-    int hit_leon;      // damage dealt to Leon this frame (0 = none)
-    int stomp;         // an attack landed on the ground (shake the view)
-    int down;          // he fell for good this frame
+    int hit_leon;      // このフレームにレオンへ与えたダメージ（0 = なし）
+    int stomp;         // 攻撃が地面に当たった（画面を揺らす）
+    int down;          // このフレームで完全に倒れた
 } GiantEvents;
 
 int giant_load(Giant *g);
 void giant_unload(Giant *g);
-// A second giant drawn with the first one's model and clips (loaded once).
+// 1体目のモデルとクリップで描く2体目の巨人（読み込みは1回）。
 void giant_share(Giant *g, const Giant *from);
 void giant_place(Giant *g, const Ground *gr, int x, int z, int ref_y, int yaw);
 void giant_update(Giant *g, const Ground *gr, const int leon_pos[3], int vulnerable, GiantEvents *ev);
 
-// Shot ray p + d*t, 0 < t < *t_best: a hit on his body updates *t_best and returns 1.
+// 弾の光線 p + d*t（0 < t < *t_best）：体に当たれば *t_best を更新して1を返す。
 int giant_raycast(const Giant *g, const int p[3], const int d[3], int *t_best);
-void giant_shot(Giant *g, int damage);
+// power：原作の単位の弾の火力（ハンドガン 100）。
+void giant_shot(Giant *g, int power);
 
-// Leon at pos facing yaw can cut the parasite (he's kneeling and Leon is at his back).
+// pos にいて yaw を向いたレオンが寄生体を斬れる（ひざをついていて、レオンが背後にいる）。
 int giant_cuttable(const Giant *g, const int pos[3]);
 void giant_cut(Giant *g);
-// A rocket's blast: he falls dead. Returns 1 if he was still up.
+// ロケットの爆発：倒れて死ぬ。まだ立っていたら1を返す。
 int giant_blast(Giant *g);
 
-// Pushes (x, z) out of his body.
+// (x, z) を彼の体から押し出す。
 void giant_push(const Giant *g, int *x, int *z, int r);
 
 void giant_draw(Giant *g, u32 poly_fmt);

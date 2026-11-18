@@ -5,8 +5,8 @@
 
 #include "giant.h"
 
-// Clips of elg_anim.bin (ch_elg.mcas #0..15). Test builds: -DTEST_ELG_VIEW shows each in turn
-// (number in the FPS field).
+// elg_anim.bin のクリップ（ch_elg.mcas #0..15）。テスト用ビルド：-DTEST_ELG_VIEW で順に表示
+// （番号は FPS 欄）。
 #ifndef ELG_IDLE
 #define ELG_IDLE    0
 #endif
@@ -30,20 +30,24 @@
 #endif
 
 #define ANIM_STEP     (inttof32(20) / 60)
-#define WALK_SPEED    floattof32(0.30)
-#define TURN          degreesToAngle(2)
+#define WALK_SPEED    (inttof32(240) / 768)  // 原作の 20Hz の1ティックあたり 240、1/256 単位（ch_param_6。docs/NOTES.md）
+#define TURN          (800 / 6)          // 原作の RotSpd 1ティックあたり 800（1回転 65536。ch_param_6）
 #define RADIUS        inttof32(9)
 #define HEIGHT        inttof32(60)
-#define REACH         inttof32(26)       // his attack reaches this far in front
-#define ATTACK_FROM   inttof32(24)       // starts an attack when Leon is this close...
-#define KEEP_OFF      inttof32(20)       // ...and walks no closer than this (an arm's length)
-#define ATTACK_DAMAGE 45
-#define SHOTS_TO_KNEEL 8                 // handgun hits (rifle: more per shot) before he kneels
-#define KNEEL_FRAMES  (60 * 12)          // he stays down this long, once he is down (time to run up and cut)
+#define REACH         inttof32(26)       // 攻撃は前方にこれだけ届く
+#define ATTACK_FROM   inttof32(24)       // レオンがこれだけ近いと攻撃を始める…
+#define KEEP_OFF      inttof32(20)       // …そしてこれ以上は近づかない（腕の長さ）
+#define ATTACK_DAMAGE 67                 // レオンの1200のうち原作の800（ch_param_6 のスクリプト16-25。docs/NOTES.md）
+// ch_param_6.bin（種類0、体のレコード0）から：体力 4500。胴への弾は火力（ハンドガン 100）の
+// 100% を減らし、ひるみの合計に 50% を足す。1010 でひざをつく（docs/NOTES.md）。
+// 斬りと、ひざをついている時間は移植版独自。
+#define GIANT_LIFE    4500
+#define FLINCH_PCT    50
+#define FLINCH_MAX    1010
+#define KNEEL_FRAMES  (60 * 12)          // ひざをついたら、これだけそのまま（駆け寄って斬る時間）
 #define CUTS_TO_DIE   3
-#define GIANT_LIFE    60                 // points of damage (handgun 1 a hit, rifle 5) that fell him
-#define CUT_DAMAGE    20                 // a cut of the parasite takes this much
-#define CUT_RANGE     inttof32(36)       // (he is big: his back is within reach from here)
+#define CUT_DAMAGE    (GIANT_LIFE / 3)   // 寄生体を1回斬るとこれだけ減る
+#define CUT_RANGE     inttof32(36)       // （大きいので、ここから背中に手が届く）
 #define STEP_UP       inttof32(4)
 
 static void *read_all(const char *path, size_t *size)
@@ -87,7 +91,7 @@ void giant_share(Giant *g, const Giant *from)
 {
     giant_unload(g);
     g->model = from->model;
-    g->model.async_list = NULL;   // its own draw list (built on the first draw)
+    g->model.async_list = NULL;   // 自分用の描画リスト（最初の描画で作る）
     g->model.async_words = 0;
     g->anims = from->anims;
     g->shared = 1;
@@ -128,7 +132,7 @@ void giant_place(Giant *g, const Ground *gr, int x, int z, int ref_y, int yaw)
     ground_height(gr, x, z, ref_y, STEP_UP, &g->feet);
     g->pos[1] = g->feet;
     g->yaw = yaw;
-    g->hp = SHOTS_TO_KNEEL;
+    g->hp = 0;
     g->life = GIANT_LIFE;
     g->cuts = 0;
     set_state(g, GIANT_WALK, ELG_WALK);
@@ -173,7 +177,7 @@ void giant_update(Giant *g, const Ground *gr, const int leon_pos[3], int vulnera
             g->frame -= len;
         break;
     case GIANT_ATTACK:
-        // The blow comes down halfway through the clip: Leon is hurt if still in front, close.
+        // 打撃はクリップの中ほどで下りる：レオンがまだ前方の近くにいればダメージ。
         if (!g->struck && g->frame >= len / 2)
         {
             g->struck = 1;
@@ -190,18 +194,18 @@ void giant_update(Giant *g, const Ground *gr, const int leon_pos[3], int vulnera
         break;
     case GIANT_KNEEL:
         if (g->held)
-            g->timer = 0;         // (Leon on his back: he stays down)
+            g->timer = 0;         // （レオンが背中にいる：ひざをついたまま）
         if (g->frame > len - 1)
-            g->frame = len - 1;   // stays down
+            g->frame = len - 1;   // ひざをついたまま
         else
-            g->timer = 0;         // (the time counts once he is down, not while he sinks)
+            g->timer = 0;         // （時間はひざをついてから数える。沈み込む間は数えない）
         if (g->timer >= KNEEL_FRAMES)
             set_state(g, GIANT_RISE, ELG_RISE);
         break;
     case GIANT_RISE:
         if (g->frame >= len)
         {
-            g->hp = SHOTS_TO_KNEEL;
+            g->hp = 0;
             set_state(g, GIANT_WALK, ELG_WALK);
         }
         break;
@@ -228,7 +232,7 @@ int giant_raycast(const Giant *g, const int p[3], const int d[3], int *t_best)
     s64 root = (s64)sqrt64(disc);
     s64 t = ((-b - root) << 12) / aa;
     if (t <= 0 && ((-b + root) << 12) / aa > 0)
-        t = 1;   // the muzzle is inside him (point blank): hit right there
+        t = 1;   // 銃口が体の中（至近距離）：その場で当たり
     if (t <= 0 || t >= *t_best)
         return 0;
     s64 y = p[1] + ((d[1] * t) >> 12) - g->feet;
@@ -239,23 +243,24 @@ int giant_raycast(const Giant *g, const int p[3], const int d[3], int *t_best)
     return 1;
 }
 
-void giant_shot(Giant *g, int damage)
+void giant_shot(Giant *g, int power)
 {
     if (g->state == GIANT_DEAD)
         return;
-    g->life -= damage;
+    g->life -= power;
     if (g->life <= 0)
     {
-        set_state(g, GIANT_DEAD, ELG_DIE);   // (the Zeebo video: the rifle finishes him)
+        set_state(g, GIANT_DEAD, ELG_DIE);   // （Zeebo の動画：ライフルでとどめ）
         return;
     }
     if (g->state == GIANT_KNEEL || g->state == GIANT_RISE)
         return;
-    g->hp -= damage;
-    if (g->hp <= 0)
-        set_state(g, GIANT_KNEEL, ELG_KNEEL);   // down on his knees: the parasite comes out
-    else if (g->state == GIANT_WALK && g->hp % 4 == 0)
-        set_state(g, GIANT_HIT, ELG_HIT);       // flinches now and then
+    g->hp += power * FLINCH_PCT / 100;
+    if (g->hp >= FLINCH_MAX)
+    {
+        g->hp = 0;
+        set_state(g, GIANT_KNEEL, ELG_KNEEL);   // ひざをつく：寄生体が出てくる
+    }
 }
 
 int giant_cuttable(const Giant *g, const int pos[3])
@@ -270,7 +275,7 @@ int giant_blast(Giant *g)
 {
     if (g->state == GIANT_DEAD)
         return 0;
-    set_state(g, GIANT_DEAD, ELG_DIE);   // a rocket: down for good, whatever his state
+    set_state(g, GIANT_DEAD, ELG_DIE);   // ロケット：状態に関係なく倒れる
     return 1;
 }
 
@@ -282,7 +287,7 @@ void giant_cut(Giant *g)
     if (++g->cuts >= CUTS_TO_DIE || g->life <= 0)
         set_state(g, GIANT_DEAD, ELG_DIE);
     else
-        set_state(g, GIANT_RISE, ELG_RISE);   // he throws Leon off and gets up
+        set_state(g, GIANT_RISE, ELG_RISE);   // レオンを振り落として起き上がる
 }
 
 void giant_push(const Giant *g, int *x, int *z, int r)
@@ -303,7 +308,7 @@ void giant_draw(Giant *g, u32 poly_fmt)
     if (!view_visible(g->pos, RADIUS * 3))
         return;
     int clip = g->clip, frame = g->frame;
-#ifdef TEST_ELG_VIEW   // test builds: each clip in turn, 3 s each
+#ifdef TEST_ELG_VIEW   // テスト用ビルド：クリップを順に、3秒ずつ
     static u32 t;
     t++;
     clip = (t / 180) % g->anims.count;
