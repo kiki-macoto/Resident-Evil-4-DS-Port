@@ -38,7 +38,7 @@ int anim_load(AnimSet *a, const void *data, size_t size)
     return 0;
 }
 
-// 3成分のチャンネルをフレーム f（f32）で線形補間する。
+// 3成分のチャンネルをフレーム f（f32）で線形補間。
 static void sample(const u8 *keys, int count, int f, int out[3])
 {
     int k = 0;
@@ -95,7 +95,7 @@ void anim_sample(const AnimSet *a, int anim, int frame, const Model *m, NodeLoca
     }
 }
 
-// 2つの角度の差 a - b を、近い方向の符号付きで返す（libnds 単位）。
+// 2つの角度の差 a - b を、近い方向の符号付きで返す。
 static int angle_diff(int a, int b)
 {
     int d = (a - b) % DEGREES_IN_CIRCLE;
