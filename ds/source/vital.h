@@ -17,9 +17,11 @@ typedef struct {
     int leon_x, leon_z, leon_yaw;
     int ash_on, ash_x, ash_z;
     int items_view;
+    int ptas;
+    int medals, medals_hit;
 } Vital;
 
-enum { VITAL_NONE, VITAL_SELECT, VITAL_USE };
+enum { VITAL_NONE, VITAL_SELECT, VITAL_USE, VITAL_CASE };
 
 int vital_init(const void *panels, size_t panels_size, const void *icons, size_t icons_size);
 

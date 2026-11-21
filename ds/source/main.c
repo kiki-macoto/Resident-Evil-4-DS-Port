@@ -443,17 +443,15 @@ static AnimSet leon_anims, leon_gun, ganado_anims, ganado_w0, ganado_w1;
 static Model sickle_model, axe_model, fork_model;
 static Model knife_model;
 static AnimSet leon_knife;
-#ifndef KNIFE_SLASH
-#define KNIFE_SLASH   3
-#endif
-#define KNIFE_READY   2
-#define KNIFE_HIGH    1
-#define KNIFE_HIGH_TILT floattof32(0.3)
+#define KNIFE_SLASH_UP   1
+#define KNIFE_SLASH_DOWN 3
+#define KNIFE_READY_UP   5
+#define KNIFE_READY_DOWN 6
+#define KNIFE_HIT_FRAME  inttof32(6)
 #define KNIFE_RANGE   inttof32(8)
 #define KNIFE_REACH   inttof32(14)
 #define KNIFE_PITCH   degreesToAngle(55)
 #define KNIFE_CHEST   inttof32(13)
-#define KNIFE_RAISED  inttof32(5)
 #ifdef TEST_SHOW_KNIFE
 static int knife_probe = 9999, v_knife2 = 8888;
 #endif
@@ -475,9 +473,6 @@ static int knife_object(const Objects *s, const int from[3], const int dir[3], i
     }
     return -1;
 }
-#define KNIFE_LEAN_UP   degreesToAngle(35)
-#define KNIFE_LEAN_DOWN degreesToAngle(33)
-#define KNIFE_CAM_DROP  inttof32(7)
 #define KNIFE_DAMAGE  130
 #ifndef KNIFE_HAND
 #define KNIFE_HAND    14
@@ -681,6 +676,7 @@ static int ev_wall_touched(const StageFoes *sf, int w, const int leon_at[3])
     return ex * ex + ez * ez < (s64)EV_WALL_REACH * EV_WALL_REACH;
 }
 
+#define EV_LEON_W floattof32(2.5)
 static int ev_near(int x, int y, int z, int reach, const int leon_at[3])
 {
     if (reach <= 0)
@@ -688,7 +684,7 @@ static int ev_near(int x, int y, int z, int reach, const int leon_at[3])
     int dy = leon_at[1] - inttof32(y);
     if (dy < -inttof32(24) || dy > inttof32(8))
         return 0;
-    s64 dx = leon_at[0] - inttof32(x), dz = leon_at[2] - inttof32(z), r = (s64)reach * 16;
+    s64 dx = leon_at[0] - inttof32(x), dz = leon_at[2] - inttof32(z), r = (s64)reach * 16 + EV_LEON_W;
     return dx * dx + dz * dz <= r * r;
 }
 
@@ -1608,16 +1604,14 @@ static int cam_back = floattof32(14.5), cam_right = floattof32(1.5), cam_height 
 #define CAM_FOV       45
 #define ST_FOV        70
 #define CAM_BACK      cam_back
-#define CAM_NEAR      inttof32(9)
-#define CAM_NEAR_LIFT floattof32(1.2)
 #define CAM_FADE      inttof32(5)
+#define CAM_PIV_DIS   (inttof32(5000) / 256)
+#define CAM_AIM_DIS   (inttof32(3000) / 256)
 #define CAM_CLIMB_OUT    inttof32(20)
 #define CAM_CLIMB_SIDE   inttof32(6)
 #define CAM_CLIMB_HEIGHT inttof32(12)
 #define CAM_CLIMB_AT     inttof32(9)
 #define CAM_WALL_GAP  floattof32(1.5)
-#define CAM_WALL_STEP floattof32(1.5)
-#define CAM_WALL_PROBE floattof32(0.75)
 #define CAM_RIGHT     cam_right
 #define CAM_AT_RIGHT  cam_at_right
 #define CAM_HEIGHT    cam_height
@@ -1627,51 +1621,14 @@ static int cam_back = floattof32(14.5), cam_right = floattof32(1.5), cam_height 
 #define CAM_AIM_RIGHT   floattof32(3.5)
 #define CAM_AIM_HEIGHT  floattof32(15.5)
 #define CAM_AIM_TILT    floattof32(25)
-#define KNIFE_CAM_BACK   floattof32(12)
-#define KNIFE_CAM_RIGHT  floattof32(0.5)
-#define KNIFE_CAM_HEIGHT floattof32(22)
-#define KNIFE_CAM_AT     floattof32(-4)
-#define CAM_SWING_MAX   60
-#define CAM_SWING_EASE  3
-
-static int cam_clear(const int head[3], int eye[3], int feet)
-{
-    int dv[3] = { eye[0] - head[0], eye[1] - head[1], eye[2] - head[2] };
-    int len = (int)sqrt64((u64)((s64)dv[0] * dv[0] + (s64)dv[1] * dv[1] + (s64)dv[2] * dv[2]));
-    if (len <= CAM_WALL_GAP)
-        return len;
-    int dir[3] = { divf32(dv[0], len), divf32(dv[1], len), divf32(dv[2], len) }, hit[3];
-    if (ground_raycast(&stage_ground, head, dir, len + CAM_WALL_GAP, hit, RAY_CAMERA))
-    {
-        int hx = hit[0] - head[0], hz = hit[2] - head[2];
-        int hd = (int)sqrt64((u64)((s64)hx * hx + (s64)hz * hz)) - CAM_WALL_GAP;
-        if (hd < inttof32(2))
-            hd = inttof32(2);
-        if (hd < len)
-            for (int k = 0; k < 3; k += 2)
-                eye[k] = head[k] + mulf32(dir[k], hd);
-    }
-    int hlen = (int)sqrt64((u64)((s64)(eye[0] - head[0]) * (eye[0] - head[0]) + (s64)(eye[2] - head[2]) * (eye[2] - head[2])));
-    if (hlen > CAM_WALL_GAP)
-    {
-        int ux = divf32(eye[0] - head[0], hlen), uz = divf32(eye[2] - head[2], hlen);
-        int lo = feet + inttof32(10), hi = eye[1] > lo ? eye[1] : lo + inttof32(1);
-        for (int d = CAM_WALL_STEP; d < hlen; d += CAM_WALL_STEP)
-        {
-            int x = head[0] + mulf32(ux, d), z = head[2] + mulf32(uz, d);
-            if (ground_collide_n(&stage_ground, &x, &z, lo, hi, CAM_WALL_PROBE, 1))
-            {
-                int hd = d - CAM_WALL_STEP;
-                if (hd < inttof32(2))
-                    hd = inttof32(2);
-                eye[0] = head[0] + mulf32(ux, hd);
-                eye[2] = head[2] + mulf32(uz, hd);
-                return hd;
-            }
-        }
-    }
-    return hlen;
-}
+#define KNIFE_PIV_X    (-inttof32(100) / 256)
+#define KNIFE_PIV_Y    (inttof32(480) / 256)
+#define KNIFE_PIV_Z    (-inttof32(870) / 256)
+#define KNIFE_CAM_BACK floattof32(11.546)
+#define KNIFE_CAM_SIDE floattof32(1.672)
+#define KNIFE_CAM_UP   floattof32(1.122)
+#define KNIFE_CAM_TILT floattof32(6)
+static int knife_hand[3] = { -inttof32(2), inttof32(9), inttof32(3) };
 
 enum { CTRL_LEON, CTRL_FREECAM };
 
@@ -1984,8 +1941,17 @@ static u32 autopilot_keys(u32 frame)
         if (frame >= s77[i].at && frame < s77[i].at + 2u)
             return s77[i].key;
     return 0;
+#elif AUTOPILOT == 78
+    if (frame < 120 || frame >= 1400) return 0;
+#ifdef AUTOPILOT_STRAIGHT
+    return frame >= 300 ? KEY_UP : 0;
+#endif
+    return KEY_UP | ((frame / 90) % 3 == 1 ? KEY_LEFT : 0);
 #elif AUTOPILOT == 76
     if (frame < 600) return 0;
+#ifdef AUTOPILOT_KNIFE_UP
+    if (frame >= 620 && frame < 620 + AUTOPILOT_KNIFE_UP) return KEY_L | KEY_UP;
+#endif
     return KEY_L | (frame == 720 || frame == 900 ? KEY_A : 0);
 #elif AUTOPILOT == 75
 #ifndef AUTOPILOT_TILT
@@ -3152,7 +3118,6 @@ int main(void)
     int holder = -1;
     int mash = 0, held_frames = 0, safe_timer = 0, hurt_flash = 0;
     int slash_frame = -1;
-    int slash_high = 0;
     int knife_w = 0;
     int act_obj = -1;
     int drop_to = 0, drop_vy = 0;
@@ -3267,6 +3232,14 @@ int main(void)
             { 300, 20, 68 }, { 400, 20, 110 }, { 500, 20, 110 },
             { 600, 20, 110 }, { 610, 20, 110 }, { 700, 20, 110 }, { 710, 20, 110 },
             { 800, 20, 110 }, { 810, 20, 110 }, { 900, 20, 68 }, { 910, 20, 68 } };
+#elif AUTOPILOT == 78 && defined(AUTOPILOT_STRAIGHT)
+        static const struct { u16 at; u8 x, y; } taps[] = { { 200, 109, 180 } };
+#elif AUTOPILOT == 78
+        static const struct { u16 at; u8 x, y; } taps[] = {
+            { 300, 25, 180 }, { 420, 67, 180 }, { 540, 67, 180 }, { 660, 25, 180 }, { 780, 109, 180 },
+            { 1000, 222, 180 }, { 1200, 222, 180 }, { 1300, 109, 180 }, { 1450, 162, 180 } };
+#endif
+#if AUTOPILOT == 12 || AUTOPILOT == 78
 #ifndef TAPS_FROM
 #define TAPS_FROM 0
 #endif
@@ -5025,34 +4998,19 @@ int main(void)
         int aiming = aim_held && reload_frame < 0;
         int knifing = (ctrl == CTRL_LEON && (held & KEY_L) && !aiming && free_to_act
                        && gun_state != GUN_DRAWING && gun_state != GUN_HOLSTERING) || slash_frame >= 0;
+        if (knifing && knife_w == 0 && slash_frame < 0)
+            aim_tilt = 0;
         knife_w += knifing ? AIM_RAISE : -AIM_RAISE;
         if (knife_w > inttof32(1)) knife_w = inttof32(1);
         if (knife_w < 0) knife_w = 0;
         if (knifing && free_to_act && (down & KEY_A) && slash_frame < 0)
         {
             slash_frame = 0;
-            slash_high = aim_tilt > KNIFE_HIGH_TILT;
-            if (!slash_high && aim_tilt > -KNIFE_HIGH_TILT)
-            {
-                int pitch = mulf32(aim_tilt, KNIFE_PITCH), cp = cosLerp(pitch), kt = KNIFE_REACH;
-                int kdir[3] = { mulf32(sinLerp(leon_yaw), cp), sinLerp(pitch), mulf32(cosLerp(leon_yaw), cp) };
-                int kfrom[3] = { leon_pos[0], leon_feet + KNIFE_CHEST, leon_pos[2] };
-                int k = knife_object(&objs, kfrom, kdir, &kt);
-                slash_high = k >= 0 && objs.o[k].pos[1] > leon_feet + KNIFE_RAISED;
-#ifdef TEST_SHOW_KNIFE
-                knife_probe = (k + 1) * 1000 + (k >= 0 ? f32toint(objs.o[k].pos[1] - leon_feet) * 10 : 0) + (aim_tilt > 0) + 2 * (aim_tilt < 0);
-                {
-                    int t2 = inttof32(200), k2 = objects_raycast(&objs, kfrom, kdir, &t2);
-                    knife_probe = knife_probe * 100000 / 100000 + 0;
-                    v_knife2 = (k2 + 1) * 1000 + (k2 >= 0 ? f32toint(t2) * 10 : 0);
-                }
-#endif
-            }
             sfx_play(SFX_KNIFE, 120, 64);
         }
         if (slash_frame >= 0)
         {
-            int len = inttof32(leon_knife.frames[slash_high ? KNIFE_HIGH : KNIFE_SLASH]), hit = len / 2;
+            int len = inttof32(leon_knife.frames[KNIFE_SLASH_UP]), hit = KNIFE_HIT_FRAME;
             slash_frame += ANIM_STEP;
             if (slash_frame >= hit && slash_frame - ANIM_STEP < hit)
             {
@@ -5066,6 +5024,21 @@ int main(void)
                     kt = (int)sqrt64((u64)(ex * ex + ey * ey + ez * ez)) + inttof32(1);
                 }
                 int kobj = knife_object(&objs, kfrom, kdir, &kt);
+                if (kobj < 0 && aim_tilt > 0)
+                {
+                    int ldir[3] = { sinLerp(leon_yaw), 0, cosLerp(leon_yaw) }, lt = KNIFE_REACH;
+                    if (ground_raycast(&stage_ground, kfrom, ldir, KNIFE_REACH, kend, RAY_SHOT))
+                    {
+                        s64 ex = kend[0] - kfrom[0], ez = kend[2] - kfrom[2];
+                        lt = (int)sqrt64((u64)(ex * ex + ez * ez)) + inttof32(1);
+                    }
+                    int lobj = knife_object(&objs, kfrom, ldir, &lt);
+                    if (lobj >= 0)
+                    {
+                        kobj = lobj;
+                        kt = lt;
+                    }
+                }
                 int kdrop = drops_raycast(&drops, kfrom, kdir, &kt);
                 if (kdrop >= 0)
                 {
@@ -5663,10 +5636,9 @@ int main(void)
             }
             int fwd_c[3] = { sinLerp(cam_yaw), 0, cosLerp(cam_yaw) };
             int right[3] = { -fwd_c[2], 0, fwd_c[0] };
-            int knife_view = knife_w > aim_w;
-            int cam_w = knife_view ? knife_w : aim_w;
-            int to_back = knife_view ? KNIFE_CAM_BACK : CAM_AIM_BACK, to_side = knife_view ? KNIFE_CAM_RIGHT : CAM_AIM_RIGHT;
-            int to_height = knife_view ? KNIFE_CAM_HEIGHT : CAM_AIM_HEIGHT;
+            int cam_w = aim_w;
+            int to_back = CAM_AIM_BACK, to_side = CAM_AIM_RIGHT;
+            int to_height = CAM_AIM_HEIGHT;
             int back = CAM_BACK + mulf32(to_back - CAM_BACK, cam_w);
             int side = CAM_RIGHT + mulf32(to_side - CAM_RIGHT, cam_w);
             int side_at = CAM_AT_RIGHT + mulf32(to_side - CAM_AT_RIGHT, cam_w);
@@ -5678,12 +5650,23 @@ int main(void)
             }
             want_eye[1] = leon_feet + CAM_HEIGHT + mulf32(to_height - CAM_HEIGHT, cam_w);
             want_at[1] = leon_feet + CAM_AT_HEIGHT + mulf32(mulf32(CAM_AIM_TILT, aim_tilt), cam_w);
-            if (knife_view)
-                want_at[1] += mulf32(KNIFE_CAM_AT - CAM_AT_HEIGHT, knife_w);
-            if (knife_w > aim_w && aim_tilt > 0)
+            if (knife_w > aim_w)
             {
-                want_eye[1] -= mulf32(mulf32(KNIFE_CAM_DROP, aim_tilt), knife_w);
-                want_at[1] -= mulf32(mulf32(CAM_AIM_TILT / 2, aim_tilt), knife_w);
+                int piv_m[3] = { knife_hand[0] + KNIFE_PIV_X, knife_hand[1] + KNIFE_PIV_Y, knife_hand[2] + KNIFE_PIV_Z };
+                int eye_m[3] = { piv_m[0] - KNIFE_CAM_SIDE, piv_m[1] + KNIFE_CAM_UP, piv_m[2] - KNIFE_CAM_BACK };
+                int k_eye[3], k_at[3];
+                for (int k = 0; k < 3; k += 2)
+                {
+                    k_eye[k] = leon_pos[k] + mulf32(fwd_c[k], eye_m[2]) - mulf32(right[k], eye_m[0]);
+                    k_at[k] = leon_pos[k] + mulf32(fwd_c[k], piv_m[2]) - mulf32(right[k], piv_m[0]);
+                }
+                k_eye[1] = leon_feet + eye_m[1];
+                k_at[1] = leon_feet + piv_m[1] + mulf32(KNIFE_CAM_TILT, aim_tilt);
+                for (int k = 0; k < 3; k++)
+                {
+                    want_eye[k] += mulf32(k_eye[k] - want_eye[k], knife_w);
+                    want_at[k] += mulf32(k_at[k] - want_at[k], knife_w);
+                }
             }
             want_at[1] += cam_kick;
             cam_kick = cam_kick * 3 / 5;
@@ -5769,67 +5752,39 @@ int main(void)
                 follow_target[2] = want_at[2];
                 follow_target[1] += (want_at[1] - follow_target[1]) >> 3;
             }
+            if (!climbing)
             {
-                static int cam_swing;
-                int head[3] = { leon_pos[0], follow_eye[1], leon_pos[2] };
-                if (!climbing)
+                int cw = knife_w > aim_w ? knife_w : aim_w;
+                int dist = CAM_PIV_DIS + mulf32(CAM_AIM_DIS - CAM_PIV_DIS, cw);
+                int tilt_y = mulf32(mulf32(CAM_AIM_TILT, aim_tilt), aim_w) + mulf32(mulf32(KNIFE_CAM_TILT, aim_tilt), knife_w);
+                int dv[3] = { follow_target[0] - follow_eye[0], follow_target[1] - tilt_y - follow_eye[1], follow_target[2] - follow_eye[2] };
+                int len = (int)sqrt64((u64)((s64)dv[0] * dv[0] + (s64)dv[1] * dv[1] + (s64)dv[2] * dv[2]));
+                if (len > 0)
                 {
-                    int off[2] = { follow_eye[0] - head[0], follow_eye[2] - head[2] };
-                    int e0[3] = { follow_eye[0], follow_eye[1], follow_eye[2] };
-                    int best = cam_clear(head, e0, leon_feet), want_swing = 0;
-                    if (best < CAM_NEAR && cam_w == 0)
+                    int back[3], piv[3], hit[3];
+                    for (int k = 0; k < 3; k++)
                     {
-                        static const s8 tries[] = { 30, -30, CAM_SWING_MAX, -CAM_SWING_MAX };
-                        for (unsigned k = 0; k < sizeof(tries); k++)
-                        {
-                            int a = degreesToAngle(tries[k]), s = sinLerp(a), c = cosLerp(a);
-                            int e[3] = { head[0] + mulf32(off[0], c) - mulf32(off[1], s), follow_eye[1], head[2] + mulf32(off[0], s) + mulf32(off[1], c) };
-                            int d = cam_clear(head, e, leon_feet);
-                            if (d > best + inttof32(2))
-                            {
-                                best = d;
-                                want_swing = a;
-                            }
-                        }
+                        back[k] = -divf32(dv[k], len);
+                        piv[k] = follow_eye[k] - mulf32(back[k], dist);
                     }
-                    int step = (want_swing - cam_swing) / 8;
-                    if (step == 0 || (step < degreesToAngle(CAM_SWING_EASE) && step > -degreesToAngle(CAM_SWING_EASE)))
-                        step = want_swing > cam_swing ? degreesToAngle(CAM_SWING_EASE) : -degreesToAngle(CAM_SWING_EASE);
-                    if ((want_swing - cam_swing) * (long long)(want_swing - cam_swing - step) <= 0)
-                        cam_swing = want_swing;
-                    else
-                        cam_swing += step;
-                    int s = sinLerp(cam_swing), c = cosLerp(cam_swing);
-                    follow_eye[0] = head[0] + mulf32(off[0], c) - mulf32(off[1], s);
-                    follow_eye[2] = head[2] + mulf32(off[0], s) + mulf32(off[1], c);
-                    cam_clear(head, follow_eye, leon_feet);
-                    if (cam_swing)
+                    if (ground_raycast(&stage_ground, piv, back, dist + CAM_WALL_GAP, hit, RAY_CAMERA))
                     {
-                        int t = divf32(cam_swing < 0 ? -cam_swing : cam_swing, degreesToAngle(CAM_SWING_MAX));
-                        int in[3] = { leon_pos[0] + mulf32(sinLerp(leon_yaw), inttof32(6)), follow_target[1],
-                                      leon_pos[2] + mulf32(cosLerp(leon_yaw), inttof32(6)) };
-                        for (int k = 0; k < 3; k += 2)
-                            follow_target[k] += mulf32(in[k] - follow_target[k], t);
+                        int hv[3] = { hit[0] - piv[0], hit[1] - piv[1], hit[2] - piv[2] };
+                        int hd = (int)sqrt64((u64)((s64)hv[0] * hv[0] + (s64)hv[1] * hv[1] + (s64)hv[2] * hv[2])) - CAM_WALL_GAP;
+                        if (hd < 0)
+                            hd = 0;
+                        if (hd < dist)
+                            for (int k = 0; k < 3; k++)
+                                follow_eye[k] = piv[k] + mulf32(back[k], hd);
                     }
                 }
-                else
-                    cam_swing = 0;
+            }
+            {
                 int hx = follow_eye[0] - leon_pos[0], hz = follow_eye[2] - leon_pos[2];
                 int near = (int)sqrt64((u64)((s64)hx * hx + (s64)hz * hz));
                 leon_fade = 31;
-                if (near < CAM_NEAR && !climbing)
-                {
-                    int lift = leon_feet + CAM_HEIGHT + mulf32(CAM_NEAR - near, CAM_NEAR_LIFT);
-                    if (follow_eye[1] < lift)
-                        follow_eye[1] = lift;
-                    int t = divf32(CAM_NEAR - near, CAM_NEAR);
-                    int in[3] = { leon_pos[0] + mulf32(sinLerp(leon_yaw), inttof32(6)), leon_feet + inttof32(8),
-                                  leon_pos[2] + mulf32(cosLerp(leon_yaw), inttof32(6)) };
-                    for (int k = 0; k < 3; k++)
-                        follow_target[k] += mulf32(in[k] - follow_target[k], t);
-                    if (near < CAM_FADE)
-                        leon_fade = 8 + 23 * near / CAM_FADE;
-                }
+                if (near < CAM_FADE && !climbing)
+                    leon_fade = 8 + 23 * near / CAM_FADE;
             }
             int cam_floor;
             if (ground_height(&stage_ground, follow_eye[0], follow_eye[2], (follow_eye[1] < want_eye[1] + inttof32(6) ? follow_eye[1] : want_eye[1] + inttof32(6)), 0, &cam_floor)
@@ -5935,7 +5890,7 @@ int main(void)
             anim_frame += (anim_dir < 0 ? ANIM_STEP * 4 / 3 : ANIM_STEP) * anim_dir;
 
             const AnimSet *set = &leon_anims;
-            int clip = leon_anim, clip_frame = anim_frame;
+            int clip = leon_anim, clip_frame = anim_frame, knife_mix = 0;
             if (leon_hp < LEON_HURT_BELOW)
                 clip += CLIP_HURT_IDLE;
             if (react != REACT_NONE)
@@ -5963,18 +5918,49 @@ int main(void)
             }
             if (knifing && react == REACT_NONE)
             {
+                static int ready_t;
                 set = &leon_knife;
-                clip = slash_frame >= 0 ? (slash_high ? KNIFE_HIGH : KNIFE_SLASH) : KNIFE_READY;
-                clip_frame = slash_frame >= 0 ? slash_frame : 0;
+                clip = slash_frame >= 0 ? KNIFE_SLASH_UP : KNIFE_READY_UP;
+                if (slash_frame >= 0)
+                    clip_frame = slash_frame;
+                else
+                {
+                    ready_t += ANIM_STEP;
+                    if (ready_t >= inttof32(leon_knife.frames[KNIFE_READY_DOWN]))
+                        ready_t = 0;
+                    clip_frame = ready_t;
+                }
+                knife_mix = 1;
 #ifdef TEST_KNIFE_VIEW
-                clip = (int)((vblank_count / 120) % 7);
-                clip_frame = (int)(vblank_count % 120) * ANIM_STEP / 2;
+                {
+                    static int kv;
+#ifdef TEST_KNIFE_SLOW
+                    static const int order[] = { 1, 5, 6, 3 };
+                    clip = order[(kv / 480) % 4];
+                    clip_frame = (kv % 480) * ANIM_STEP / 8;
+#else
+                    clip = (kv / 360) % 7;
+                    clip_frame = (kv % 360) * ANIM_STEP / 4;
+#endif
+                    kv++;
+                }
                 if (leon_knife.frames[clip] > 0) clip_frame %= inttof32(leon_knife.frames[clip]); else clip_frame = 0;
+                knife_mix = 0;
 #endif
             }
             anim_sample(set, clip, clip_frame, &leon, pose_base);
+            if (knife_mix)
+            {
+                int down_clip = clip == KNIFE_SLASH_UP ? KNIFE_SLASH_DOWN : KNIFE_READY_DOWN;
+                int f = clip_frame;
+                if (leon_knife.frames[down_clip] > 0 && f >= inttof32(leon_knife.frames[down_clip]))
+                    f = inttof32(leon_knife.frames[down_clip]) - 1;
+                anim_sample(&leon_knife, down_clip, f, &leon, pose_tilt);
+                anim_blend(pose_base, pose_tilt, leon.node_count, (inttof32(1) - aim_tilt) / 2);
+                knife_mix = 0;
+            }
 
-            int key = (set == &leon_gun ? 100 : set == &leon_knife ? 200 : 0) + clip;
+            int key =(set == &leon_gun ? 100 : set == &leon_knife ? 200 : 0) + clip;
             if (key != clip_key)
             {
                 if (clip_key >= 0)
@@ -6016,19 +6002,9 @@ int main(void)
                 anim_blend(pose_base + UPPER_BODY, pose_fx + UPPER_BODY, leon.node_count - UPPER_BODY, w > inttof32(1) ? inttof32(1) : w);
             }
             anim_compose(&leon, pose_base, leon_pose);
-            if (knifing && react == REACT_NONE && aim_tilt)
-            {
-                int a = -mulf32(aim_tilt, aim_tilt > 0 ? KNIFE_LEAN_UP : KNIFE_LEAN_DOWN), c, s;
-                c = cosLerp(a);
-                s = sinLerp(a);
-                const int *w = leon_pose[UPPER_BODY];
-                int py = w[10], pz = w[11];
-                int rot[12] = { inttof32(1), 0, 0,  0, c, -s,  0, s, c,
-                                0, py - mulf32(c, py) + mulf32(s, pz), pz - mulf32(s, py) - mulf32(c, pz) };
-                for (int n = UPPER_BODY; n < leon.node_count; n++)
-                    mtx43_mul(leon_pose[n], rot, leon_pose[n]);
-            }
-
+            if (knifing && slash_frame < 0 && react == REACT_NONE && aim_tilt == 0)
+                for (int k = 0; k < 3; k++)
+                    knife_hand[k] = leon_pose[KNIFE_HAND][9 + k];
             const int *hand = leon_pose[HAND_NODE];
             int m_model[3], d_model[3] = { -hand[0], -hand[3], -hand[6] }, d_world[3], zero[3] = { 0, 0, 0 };
             for (int k = 0; k < 3; k++)
@@ -7159,7 +7135,8 @@ int main(void)
         if (spare < 20) spare = 20;
 #endif
         Vital v = { leon_hp, LEON_HP, ammo, MAG_SIZE, spare, herbs, HERB_HEAL, (int)fps, weapons[wep].name, { 0, 0 }, { 0, 0 },
-                    cur_stage, leon_pos[0], leon_pos[2], leon_yaw, ash.on, ash.pos[0], ash.pos[2], bottom_items };
+                    cur_stage, leon_pos[0], leon_pos[2], leon_yaw, ash.on, ash.pos[0], ash.pos[2], bottom_items,
+                    ptas, objs.medals, objs.medals_hit };
         item_icon(weapons[wep].item, &v.gun_icon[0], &v.gun_icon[1]);
         item_icon(AMMO_ITEM(wep), &v.ammo_icon[0], &v.ammo_icon[1]);
 #ifdef TEST_SHOW_FOES
@@ -7302,6 +7279,8 @@ int main(void)
 #ifdef TEST_SHOW_CAM
             snprintf(pos_s, sizeof(pos_s), "c %d %d %d y%d f%d", follow_eye[0] >> 12, follow_eye[1] >> 12, follow_eye[2] >> 12, leon_yaw * 360 / DEGREES_IN_CIRCLE, leon_fade);
             text_line(1, 4, 18, TEXT_GOLD, pos_s);
+            snprintf(pos_s, sizeof(pos_s), "h %d %d %d", knife_hand[0] * 10 >> 12, knife_hand[1] * 10 >> 12, knife_hand[2] * 10 >> 12);
+            text_line(2, 4, 32, TEXT_GOLD, pos_s);
 #endif
         }
 #endif
@@ -7358,6 +7337,16 @@ int main(void)
         int act = vital_update(&v, down, tick, ctrl == CTRL_LEON && mode == MODE_PLAY && react != REACT_DEAD);
         if (act == VITAL_SELECT)
             sfx_play(SFX_MENU, 70, 64);
+        else if (act == VITAL_CASE)
+        {
+            if (mode == MODE_PLAY && react == REACT_NONE && ctrl == CTRL_LEON)
+            {
+                sfx_play(SFX_MENU, 70, 64);
+                mode = MODE_STATUS;
+                st_sel = st_top = 0;
+                st_cmd = -1;
+            }
+        }
         else if (act == VITAL_USE)
         {
             if (herbs == 0)
