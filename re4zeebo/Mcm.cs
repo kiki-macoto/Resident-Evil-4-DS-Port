@@ -8,7 +8,7 @@ namespace Re4Zeebo
 {
     public class DrawRecord
     {
-        public int Offset, PrimType, IndexCount, TriCount, MaxIndex, Material;
+        public int Offset, PrimType, IndexCount, TriCount, MaxIndex, Material, Tag;
         public ushort[] Indices;
         public VertexBlock Vertices;
         public float Lift;
@@ -86,6 +86,7 @@ namespace Re4Zeebo
             {
                 int drawNode = -1;
                 foreach (var t in tags) if (t[0] < start + d.Offset) drawNode = t[1];
+                d.Tag = drawNode;
                 VertexBlock byNode = null, byOrder = null;
                 foreach (var v in st.VertexBlocks)
                 {
@@ -98,6 +99,39 @@ namespace Re4Zeebo
             }
             foreach (var v in st.VertexBlocks) st.Vertices += v.VertexCount;
             return st;
+        }
+
+        public static int PlaceRigidBlocks(byte[] b, int start, int len, MeshStats st, Skeleton sk)
+        {
+            if (sk == null) return 0;
+            int end = start + len, placed = 0;
+            var g = Anim.Globals(sk, i => sk.Local[i]);
+            foreach (var v in st.VertexBlocks)
+            {
+                if (v.Skinned || v.Pos == null) continue;
+                var d = st.Draws.Find(x => x.Vertices == v);
+                if (d == null) continue;
+                int node = -1;
+                for (int o = start; o + 8 <= end && node < 0; o++)
+                {
+                    if (BitConverter.ToInt32(b, o) != d.Tag || BitConverter.ToInt32(b, o + 4) != v.Node) continue;
+                    for (int k = 0; k < 8; k++)
+                    {
+                        int c = o - 2 - 8 * k;
+                        if (c - 4 < start) break;
+                        int cnt = BitConverter.ToUInt16(b, c);
+                        if (cnt <= k || cnt > 16) continue;
+                        int bone = BitConverter.ToInt32(b, c - 4);
+                        if (bone >= 0 && bone + 1 < sk.Count) node = bone + 1;
+                        break;
+                    }
+                }
+                if (node < 0) continue;
+                for (int i = 0; i + 2 < v.Pos.Length; i += 3)
+                    Anim.Apply(g[node], v.Pos[i], v.Pos[i + 1], v.Pos[i + 2], out v.Pos[i], out v.Pos[i + 1], out v.Pos[i + 2]);
+                placed++;
+            }
+            return placed;
         }
 
         static void ReadMaterials(byte[] b, int start, int end, MeshStats st)

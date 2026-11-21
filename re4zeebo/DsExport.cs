@@ -245,6 +245,11 @@ namespace Re4Zeebo
                         TrimSkeleton(skel, skin);
                     }
                 }
+                if (skel == null && s.VertexBlocks.Count > 1)
+                {
+                    int placed = Mcm.PlaceRigidBlocks(data, parts[part][0], parts[part][1], s, Anim.ReadSkeleton(data, parts[part][0], parts[part][1]));
+                    if (placed > 0) log(string.Format("  {0}: {1} parts placed on their nodes", name, placed));
+                }
                 models.Add(Tuple.Create(name, s, texOf, skel, skin));
             }
 
