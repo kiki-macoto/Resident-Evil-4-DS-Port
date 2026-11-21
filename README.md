@@ -1,6 +1,6 @@
 
 
-# RE4 Zeebo Edition for Nintendo DS（ベータ版）
+# RE4 Zeebo Edition for Nintendo DS (Beta v2.1)
 
 <img width="480" height="272" alt="download" src="docs/PR.png" />
 
