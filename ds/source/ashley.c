@@ -135,7 +135,7 @@ static void walk_to(Ashley *a, const Ground *g, int tx, int tz, int near, int *d
     int speed = 0;
     if (*dist > near)
     {
-        int want = (int)(atan2f((float)dx, (float)dz) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
+        int want = angle_to(dx, dz);
         int diff = ((want - a->yaw + DEGREES_IN_CIRCLE / 2) & (DEGREES_IN_CIRCLE - 1)) - DEGREES_IN_CIRCLE / 2;
         a->yaw = (a->yaw + (diff > TURN ? TURN : diff < -TURN ? -TURN : diff)) & (DEGREES_IN_CIRCLE - 1);
         speed = *dist > FOLLOW_RUN ? RUN_SPEED : WALK_SPEED;
@@ -254,7 +254,7 @@ void ashley_update(Ashley *a, const Ground *g, const int leon_pos[3], int leon_y
     int speed = 0;
     if (a->state == ASH_FOLLOW && dist > FOLLOW_NEAR)
     {
-        int want = (int)(atan2f((float)dx, (float)dz) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
+        int want = angle_to(dx, dz);
         int diff = ((want - a->yaw + DEGREES_IN_CIRCLE / 2) & (DEGREES_IN_CIRCLE - 1)) - DEGREES_IN_CIRCLE / 2;
         a->yaw = (a->yaw + (diff > TURN ? TURN : diff < -TURN ? -TURN : diff)) & (DEGREES_IN_CIRCLE - 1);
         speed = dist > FOLLOW_RUN ? RUN_SPEED : WALK_SPEED;

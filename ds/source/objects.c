@@ -113,7 +113,7 @@ void objects_init(Objects *s, const Ground *g, const Model *door, const Model *l
         o->dir[0] = F(l[2]); o->dir[1] = F(l[3]);
         o->top = F(l[4]);
         ladder_edge(o, g);
-        o->yaw = (int)(atan2f(-l[2], -l[3]) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
+        o->yaw = angle_to(-F(l[2]), -F(l[3]));
         o->pair = -1;
         o->fuse = -1;
     }

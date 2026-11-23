@@ -116,6 +116,58 @@ void anim_blend(NodeLocal dst[], const NodeLocal src[], int count, int w)
     }
 }
 
+#define ANG_F (6.2831853f / 32768.0f)
+static void euler_quat(const int r[3], float q[4])
+{
+    float hx = r[0] * ANG_F * 0.5f, hy = r[1] * ANG_F * 0.5f, hz = r[2] * ANG_F * 0.5f;
+    float cx = cosf(hx), sx = sinf(hx), cy = cosf(hy), sy = sinf(hy), cz = cosf(hz), sz = sinf(hz);
+    q[0] = cz * cy * cx + sz * sy * sx;
+    q[1] = cz * cy * sx - sz * sy * cx;
+    q[2] = cz * sy * cx + sz * cy * sx;
+    q[3] = sz * cy * cx - cz * sy * sx;
+}
+
+static void quat_euler(const float q[4], int r[3])
+{
+    float w = q[0], x = q[1], y = q[2], z = q[3];
+    float r0 = 1 - 2 * (y * y + z * z), r3 = 2 * (x * y + w * z), r6 = 2 * (x * z - w * y);
+    float r7 = 2 * (y * z + w * x), r8 = 1 - 2 * (x * x + y * y);
+    float sy = -r6;
+    sy = sy > 1 ? 1 : sy < -1 ? -1 : sy;
+    r[0] = (int)(atan2f(r7, r8) / ANG_F);
+    r[1] = (int)(asinf(sy) / ANG_F);
+    r[2] = (int)(atan2f(r3, r0) / ANG_F);
+}
+
+void anim_blend_q(NodeLocal dst[], const NodeLocal src[], int count, int w)
+{
+    static const int zero[3] = { 0, 0, 0 };
+    float fw = w / 4096.0f;
+    for (int n = 0; n < count; n++)
+    {
+        for (int j = 0; j < 3; j++)
+            dst[n].t[j] += mulf32(src[n].t[j] - dst[n].t[j], w);
+        if (!dst[n].has_r && !src[n].has_r)
+            continue;
+        float a[4], b[4], q[4];
+        euler_quat(dst[n].has_r ? dst[n].r : zero, a);
+        euler_quat(src[n].has_r ? src[n].r : zero, b);
+        float dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+        float sb = dot < 0 ? -fw : fw, len = 0;
+        for (int k = 0; k < 4; k++)
+        {
+            q[k] = a[k] * (1 - fw) + b[k] * sb;
+            len += q[k] * q[k];
+        }
+        len = sqrtf(len);
+        if (len > 0)
+            for (int k = 0; k < 4; k++)
+                q[k] /= len;
+        quat_euler(q, dst[n].r);
+        dst[n].has_r = 1;
+    }
+}
+
 void anim_add_delta(NodeLocal dst[], const NodeLocal a[], const NodeLocal b[], int count, int w)
 {
     for (int n = 0; n < count; n++)

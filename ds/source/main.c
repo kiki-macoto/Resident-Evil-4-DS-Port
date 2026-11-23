@@ -329,7 +329,7 @@ static void bolts_draw(void)
         if (bolts[i].life > 0)
         {
             const Bolt *b = &bolts[i];
-            int yaw = (int)(atan2f((float)b->vel[0], (float)b->vel[2]) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
+            int yaw = angle_to(b->vel[0], b->vel[2]);
             model_draw(&bolt_model, b->pos, yaw, POLY_ALPHA(31) | POLY_CULL_NONE, NULL);
         }
 }
@@ -1152,7 +1152,7 @@ static void foes_step(const int leon_at[3])
             }
             int yaw = r->dir * (DEGREES_IN_CIRCLE / 256);
             if (brought)
-                yaw = (int)(atan2f((float)(leon_at[0] - inttof32(xyz[0])), (float)(leon_at[2] - inttof32(xyz[2]))) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
+                yaw = angle_to((leon_at[0] - inttof32(xyz[0])), (leon_at[2] - inttof32(xyz[2])));
             enemies_respawn(&ganados, slot, xyz, yaw);
             ganados.e[slot].drop = r->drop;
             enemies_set_kind(&ganados, slot, foe_kind_of(r));
@@ -1629,6 +1629,9 @@ static int cam_back = floattof32(14.5), cam_right = floattof32(1.5), cam_height 
 #define KNIFE_CAM_UP   floattof32(1.122)
 #define KNIFE_CAM_TILT floattof32(6)
 static int knife_hand[3] = { -inttof32(2), inttof32(9), inttof32(3) };
+#ifdef TEST_CAM_JUMPS
+static int cam_jumps, cam_near_min = 99, cam_xfades;
+#endif
 
 enum { CTRL_LEON, CTRL_FREECAM };
 
@@ -1941,6 +1944,13 @@ static u32 autopilot_keys(u32 frame)
         if (frame >= s77[i].at && frame < s77[i].at + 2u)
             return s77[i].key;
     return 0;
+#elif AUTOPILOT == 79
+    if (frame < 600) return 0;
+#ifdef AUTOPILOT_STILL
+    return KEY_L;
+#endif
+    if (frame >= 1500) return KEY_L;
+    return KEY_L | ((frame / 30) % 4 == 0 ? KEY_UP : (frame / 30) % 4 == 2 ? KEY_DOWN : 0);
 #elif AUTOPILOT == 78
     if (frame < 120 || frame >= 1400) return 0;
 #ifdef AUTOPILOT_STRAIGHT
@@ -4926,7 +4936,7 @@ int main(void)
                     walk_out(&stage_ground, leon_pos, -gclimb_f[0], -gclimb_f[1], inttof32(4), gclimb_y);
                     {
                         int tx = gc->pos[0] - leon_pos[0], tz = gc->pos[2] - leon_pos[2];
-                        leon_yaw = (int)(atan2f((float)tx, (float)tz) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
+                        leon_yaw = angle_to(tx, tz);
                     }
                     ground_height(&stage_ground, leon_pos[0], leon_pos[2], leon_feet + STEP_UP, STEP_UP, &leon_feet);
                     leon_pos[1] = leon_feet - leon.bbox_min[1];
@@ -5187,7 +5197,7 @@ int main(void)
                         (void)ax; (void)ay; (void)az;
                         int aim_yaw = leon_yaw;
                         if (laser_enemy >= 0)
-                            aim_yaw = (int)(atan2f((float)(ganados.e[laser_enemy].pos[0] - leon_pos[0]), (float)(ganados.e[laser_enemy].pos[2] - leon_pos[2])) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
+                            aim_yaw = angle_to((ganados.e[laser_enemy].pos[0] - leon_pos[0]), (ganados.e[laser_enemy].pos[2] - leon_pos[2]));
                         int aim_pitch = mulf32(aim_tilt, degreesToAngle(40));
                         int pellets_hit = 0;
                         for (int k = 0; k < 5; k++)
@@ -5528,7 +5538,7 @@ int main(void)
             if (dazed >= 0)
             {
                 int dx = ganados.e[dazed].pos[0] - leon_pos[0], dz = ganados.e[dazed].pos[2] - leon_pos[2];
-                leon_yaw = (int)(atan2f((float)dx, (float)dz) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
+                leon_yaw = angle_to(dx, dz);
                 react = REACT_KICK;
                 react_frame = 0;
                 act_obj = -1;
@@ -5779,6 +5789,20 @@ int main(void)
                     }
                 }
             }
+#ifdef TEST_CAM_JUMPS
+            {
+                static int prev_eye[3];
+                s64 jx = follow_eye[0] - prev_eye[0], jy = follow_eye[1] - prev_eye[1], jz = follow_eye[2] - prev_eye[2];
+                if (frame_no > 600 && knife_w == inttof32(1) && jx * jx + jy * jy + jz * jz > (s64)inttof32(2) * inttof32(2))
+                    cam_jumps++;
+                for (int k = 0; k < 3; k++)
+                    prev_eye[k] = follow_eye[k];
+                int ex = f32toint(follow_eye[0] - leon_pos[0]), ez = f32toint(follow_eye[2] - leon_pos[2]);
+                int d = (int)sqrtf((float)(ex * ex + ez * ez));
+                if (frame_no > 600 && knife_w == inttof32(1) && d < cam_near_min)
+                    cam_near_min = d;
+            }
+#endif
             {
                 int hx = follow_eye[0] - leon_pos[0], hz = follow_eye[2] - leon_pos[2];
                 int near = (int)sqrt64((u64)((s64)hx * hx + (s64)hz * hz));
@@ -5918,17 +5942,14 @@ int main(void)
             }
             if (knifing && react == REACT_NONE)
             {
-                static int ready_t;
                 set = &leon_knife;
                 clip = slash_frame >= 0 ? KNIFE_SLASH_UP : KNIFE_READY_UP;
                 if (slash_frame >= 0)
                     clip_frame = slash_frame;
                 else
                 {
-                    ready_t += ANIM_STEP;
-                    if (ready_t >= inttof32(leon_knife.frames[KNIFE_READY_DOWN]))
-                        ready_t = 0;
-                    clip_frame = ready_t;
+                    int last = leon_knife.frames[KNIFE_READY_DOWN] - 1;
+                    clip_frame = inttof32(last > 0 ? last : 0);
                 }
                 knife_mix = 1;
 #ifdef TEST_KNIFE_VIEW
@@ -5956,8 +5977,30 @@ int main(void)
                 if (leon_knife.frames[down_clip] > 0 && f >= inttof32(leon_knife.frames[down_clip]))
                     f = inttof32(leon_knife.frames[down_clip]) - 1;
                 anim_sample(&leon_knife, down_clip, f, &leon, pose_tilt);
+#ifdef TEST_EULER_BLEND
                 anim_blend(pose_base, pose_tilt, leon.node_count, (inttof32(1) - aim_tilt) / 2);
+#elif defined(TEST_KNIFE_ONLY)
+                anim_blend_q(pose_base, pose_tilt, leon.node_count, TEST_KNIFE_ONLY == 6 ? inttof32(1) : 0);
+#else
+                anim_blend_q(pose_base, pose_tilt, leon.node_count, (inttof32(1) - aim_tilt) / 2);
+#endif
                 knife_mix = 0;
+#ifdef TEST_CAM_JUMPS
+                {
+                    static int prev_r[MODEL_MAX_NODES][3], have;
+                    for (int n = 0; n < leon.node_count; n++)
+                        for (int j = 0; j < 3; j++)
+                        {
+                            int d = (pose_base[n].r[j] - prev_r[n][j]) % DEGREES_IN_CIRCLE;
+                            if (d > DEGREES_IN_CIRCLE / 2) d -= DEGREES_IN_CIRCLE;
+                            if (d < -DEGREES_IN_CIRCLE / 2) d += DEGREES_IN_CIRCLE;
+                            if (have && slash_frame < 0 && knife_w == inttof32(1) && (d > degreesToAngle(30) || d < -degreesToAngle(30)))
+                                cam_xfades++;
+                            prev_r[n][j] = pose_base[n].r[j];
+                        }
+                    have = 1;
+                }
+#endif
             }
 
             int key =(set == &leon_gun ? 100 : set == &leon_knife ? 200 : 0) + clip;
@@ -5968,6 +6011,10 @@ int main(void)
                     memcpy(pose_from, pose_prev, sizeof(pose_from));
                     xfade_w = inttof32(1);
                 }
+#ifdef TEST_CAM_JUMPS
+                if (frame_no > 660 && knife_w == inttof32(1))
+                    cam_xfades += 10000;
+#endif
                 clip_key = key;
             }
             if (xfade_w > 0)
@@ -6002,7 +6049,25 @@ int main(void)
                 anim_blend(pose_base + UPPER_BODY, pose_fx + UPPER_BODY, leon.node_count - UPPER_BODY, w > inttof32(1) ? inttof32(1) : w);
             }
             anim_compose(&leon, pose_base, leon_pose);
-            if (knifing && slash_frame < 0 && react == REACT_NONE && aim_tilt == 0)
+#ifdef TEST_CAM_JUMPS
+            {
+                static int prev_p[MODEL_MAX_NODES][3], have_p;
+                int worst = 0;
+                for (int n = 0; n < leon.node_count; n++)
+                {
+                    s64 dx = leon_pose[n][9] - prev_p[n][0], dy = leon_pose[n][10] - prev_p[n][1], dz = leon_pose[n][11] - prev_p[n][2];
+                    int d = (int)sqrt64((u64)(dx * dx + dy * dy + dz * dz));
+                    if (d > worst)
+                        worst = d;
+                    for (int k = 0; k < 3; k++)
+                        prev_p[n][k] = leon_pose[n][9 + k];
+                }
+                if (have_p && knifing && slash_frame < 0 && knife_w == inttof32(1) && worst > floattof32(0.8))
+                    cam_jumps++;
+                have_p = 1;
+            }
+#endif
+            if (knifing && slash_frame < 0 && react == REACT_NONE && knife_w < inttof32(1))
                 for (int k = 0; k < 3; k++)
                     knife_hand[k] = leon_pose[KNIFE_HAND][9 + k];
             const int *hand = leon_pose[HAND_NODE];
@@ -6426,9 +6491,9 @@ int main(void)
 #ifdef TEST_HANG_RAY
                     const Obj *o = &objs.o[i];
                     int p[3] = { leon_pos[0], leon_feet + inttof32(16), leon_pos[2] };
-                    float dx = f32tofloat(o->pos[0] - p[0]), dy = f32tofloat(o->pos[1] - inttof32(3) - p[1]), dz = f32tofloat(o->pos[2] - p[2]);
-                    float len = sqrtf(dx * dx + dy * dy + dz * dz);
-                    int d[3] = { floattof32(dx / len), floattof32(dy / len), floattof32(dz / len) }, t = inttof32(400);
+                    int32_t d[3] = { o->pos[0] - p[0], o->pos[1] - inttof32(3) - p[1], o->pos[2] - p[2] };
+                    normalizef32(d);
+                    int t = inttof32(400);
                     if (objects_raycast(&objs, p, d, &t) == i)
 #endif
                     objects_hit(&objs, i);
@@ -7243,7 +7308,7 @@ int main(void)
         if (giant_count)
         {
             int tx = giants[0].pos[0] - leon_pos[0], tz = giants[0].pos[2] - leon_pos[2];
-            int want = (int)(atan2f((float)tx, (float)tz) * (DEGREES_IN_CIRCLE / 2) / 3.14159265f);
+            int want = angle_to(tx, tz);
             ap_aim_err = (s16)(want - leon_yaw);
         }
 #endif
@@ -7333,6 +7398,11 @@ int main(void)
 #endif
 #ifdef TEST_KNIFE_VIEW
         v.fps = (int)((vblank_count / 120) % 7);
+#endif
+#ifdef TEST_CAM_JUMPS
+        v.fps = cam_jumps * 1000 + knife_w * 100 / 4096;
+        v.spare = cam_near_min;
+        v.ammo = cam_xfades;
 #endif
         int act = vital_update(&v, down, tick, ctrl == CTRL_LEON && mode == MODE_PLAY && react != REACT_DEAD);
         if (act == VITAL_SELECT)

@@ -200,7 +200,7 @@ namespace Re4Zeebo
                     {
                         if (!Mct.IsMct(data, p[0])) { list.Add(null); continue; }
                         var m = Mct.Parse(data, p[0]);
-                        var r = new TexRef { Info = m, Src = data, Alpha = m.Format == 0x16, Ok = Mct.ExpectedSize(m) > 0 && m.DataSize >= Mct.ExpectedSize(m) };
+                        var r = new TexRef { Info = m, Src = data, Alpha = m.Format == 0x16, Ok = Mct.ExpectedSize(m) > 0 && m.DataSize >= Mct.ExpectedSize(m), SkinFix = Mct.NeedsSkinFix(e.Name) };
                         list.Add(r);
                         if (m.Id != 0 && r.Ok) byId[a.Key][m.Id] = r;
                     }
@@ -303,7 +303,10 @@ namespace Re4Zeebo
             foreach (var r in used)
             {
                 int w, h;
-                var rgba = DsTextures.Downscale(Mct.DecodeRgba(r.Src, r.Info), r.Info.Width, r.Info.Height, shift[r], out w, out h);
+                var dec = Mct.DecodeRgba(r.Src, r.Info);
+                if (r.SkinFix)
+                    Mct.FixBlueSkin(dec);
+                var rgba = DsTextures.Downscale(dec, r.Info.Width, r.Info.Height, shift[r], out w, out h);
                 converted[r] = DsTextures.ToRgb256(rgba, w, h);
                 if (shift[r] > 0) log(string.Format("  texture id {0}: {1}x{2} -> {3}x{4}", r.Info.Id, r.Info.Width, r.Info.Height, w, h));
             }

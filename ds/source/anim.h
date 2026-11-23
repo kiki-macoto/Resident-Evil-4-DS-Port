@@ -22,6 +22,7 @@ int anim_load(AnimSet *a, const void *data, size_t size);
 void anim_sample(const AnimSet *a, int anim, int frame, const Model *m, NodeLocal out[]);
 
 void anim_blend(NodeLocal dst[], const NodeLocal src[], int count, int w);
+void anim_blend_q(NodeLocal dst[], const NodeLocal src[], int count, int w);
 
 void anim_add_delta(NodeLocal dst[], const NodeLocal a[], const NodeLocal b[], int count, int w);
 void anim_add_delta_rot(NodeLocal dst[], const NodeLocal a[], const NodeLocal b[], int count, int w);

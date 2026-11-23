@@ -64,4 +64,11 @@ void model_sync(void);
 void mtx43_mul(int out[12], const int a[12], const int b[12]);
 void mtx43_euler(int out[12], int rx, int ry, int rz);
 
+static inline int angle_to(int32_t y, int32_t x)
+{
+    if (x == 0 && y == 0)
+        return 0;
+    return (int)(((int64_t)atan2_f32(y, x) * DEGREES_IN_CIRCLE) / 25736);
+}
+
 #endif

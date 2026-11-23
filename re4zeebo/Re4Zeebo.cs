@@ -182,6 +182,23 @@ namespace Re4Zeebo
             }
         }
 
+        public static bool NeedsSkinFix(string name)
+        {
+            string n = Path.GetFileName(name).ToLowerInvariant();
+            return n.StartsWith("ch_gna_all") || n.StartsWith("ch_cha") || n.StartsWith("ch_jya_all");
+        }
+
+        public static void FixBlueSkin(byte[] rgba)
+        {
+            for (int i = 0; i + 3 < rgba.Length; i += 4)
+                if (rgba[i + 2] > rgba[i])
+                {
+                    byte t = rgba[i];
+                    rgba[i] = rgba[i + 2];
+                    rgba[i + 2] = t;
+                }
+        }
+
         public static byte[] DecodeRgba(byte[] b, MctInfo m)
         {
             int w = m.Width, h = m.Height;
@@ -266,7 +283,7 @@ namespace Re4Zeebo
     {
         class ArchiveTotals { public int Textures, TexBytes, DsBytes, Meshes, Triangles, Draws; }
 
-        class TexRef { public string Png; public bool Alpha, Ok; public MctInfo Info; public byte[] Src; }
+        class TexRef { public string Png; public bool Alpha, Ok, SkinFix; public MctInfo Info; public byte[] Src; }
 
         static TexRef ResolveTexture(Dictionary<string, Dictionary<int, TexRef>> byId, Dictionary<string, List<TexRef>> byFile,
                                      string arch, string file, int id)
