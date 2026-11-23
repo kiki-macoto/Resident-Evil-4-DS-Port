@@ -1,6 +1,6 @@
 
 
-# RE4 Zeebo Edition for Nintendo DS (Beta v2.1)
+# RE4 Zeebo Edition for Nintendo DS (Beta v2.2)
 
 <img width="480" height="272" alt="download" src="docs/PR.png" />
 
@@ -62,7 +62,7 @@ MIDI の音楽は DS では鳴らせないため、変換時に Windows の MIDI
 
 ### 既知の問題（issueに登録されたものを随時こちらに反映します）
 
-- テクスチャバグ（ガナードの青い顔）
+- テクスチャバグ（ガナードの青い顔）☑
 - ゲームスピードの最適化（アシュリーが画面上に描画されている時に若干fps値が下がる）
 - 敵が出てくるタイミング（ウェーブ）の最適化（DS向けに敵の数を減らしたりしています）
 - 全ステージ分のデータ変換は、まだ1本のスクリプトにまとまっていません
